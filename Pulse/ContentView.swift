@@ -6,13 +6,11 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var store: PulseStore
+    @Binding var selectedPage: Int
     @State private var tick = Date()  // re-render every minute so the active-window state updates
 
     private let gridColumns = [
-        GridItem(.flexible(), spacing: 5),
-        GridItem(.flexible(), spacing: 5),
-        GridItem(.flexible(), spacing: 5),
-        GridItem(.flexible(), spacing: 5)
+        GridItem(.flexible(), spacing: 10)
     ]
 
     var body: some View {
@@ -135,17 +133,27 @@ struct ContentView: View {
 
     private var clipGrid: some View {
         LazyVGrid(columns: gridColumns, spacing: 5) {
-            ForEach(Array(store.plan.moments.enumerated()), id: \.element.id) { index, moment in
+            ForEach(visibleMomentRows, id: \.moment.id) { row in
                 ClipSlotView(
-                    moment: moment,
-                    index: index,
-                    isHourlyActive: store.activeHourlyMoment?.id == moment.id
+                    moment: row.moment,
+                    index: row.index,
+                    isHourlyActive: store.activeHourlyMoment?.id == row.moment.id
                 )
-                .aspectRatio(3/4, contentMode: .fit)
+                .aspectRatio(16/9, contentMode: .fit)
                 .onTapGesture {
-                    handleSlotTap(moment: moment)
+                    handleSlotTap(moment: row.moment)
                 }
             }
+        }
+    }
+
+    private var visibleMomentRows: [(index: Int, moment: CaptureMoment)] {
+        let now = tick
+        return store.plan.moments.enumerated().compactMap { offset, moment in
+            if moment.status == .captured { return (offset, moment) }
+            if moment.kind == .free { return (offset, moment) }
+            if moment.scheduledAt.addingTimeInterval(5 * 60) >= now { return (offset, moment) }
+            return nil
         }
     }
 
@@ -168,6 +176,29 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.45))
                     .kerning(1.5)
                 Spacer()
+                Menu {
+                    ForEach(MusicTrack.all) { track in
+                        Button {
+                            store.setVlogMusic(track.id)
+                        } label: {
+                            Label(
+                                track.displayName,
+                                systemImage: store.selectedMusicTrack.id == track.id ? "checkmark" : "music.note"
+                            )
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "music.note")
+                        Text(store.selectedMusicTrack.displayName)
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.65))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(.white.opacity(0.08))
+                    .clipShape(Capsule())
+                }
                 ShareLink(item: url) {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 14, weight: .semibold))
@@ -213,7 +244,9 @@ struct ContentView: View {
             if let active = store.activeHourlyMoment {
                 Button {
                     store.selectedMomentID = active.id
-                    store.showingCapture = true
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                        selectedPage = 0
+                    }
                 } label: {
                     ZStack {
                         Circle()
@@ -232,29 +265,27 @@ struct ContentView: View {
                 // Otherwise expose the free slot.
                 Button {
                     store.selectedMomentID = free.id
-                    store.showingCapture = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("FREE SHOT")
-                            .font(.system(size: 14, weight: .black))
-                            .kerning(2)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                        selectedPage = 0
                     }
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 14)
-                    .background(.yellow)
-                    .clipShape(Capsule())
+                } label: {
+                    ZStack {
+                        Circle()
+                            .stroke(.white.opacity(0.25), lineWidth: 4)
+                            .frame(width: 86, height: 86)
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 74, height: 74)
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(.black)
+                    }
                 }
+                .accessibilityLabel("自由撮影")
             }
-            Text(footerLabel)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.4))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
         }
-        .padding(.bottom, 38)
+        .padding(.bottom, 0)
+        .offset(y: 54)
     }
 
     private var footerLabel: String {
@@ -332,12 +363,12 @@ struct ClipSlotView: View {
                     Color.white.opacity(baseOpacity)
                     if moment.kind == .free {
                         VStack(spacing: 2) {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.yellow.opacity(0.7))
-                            Text("FREE")
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.65))
+                            Text("CAM")
                                 .font(.system(size: 8, weight: .black, design: .monospaced))
-                                .foregroundStyle(.yellow.opacity(0.6))
+                                .foregroundStyle(.white.opacity(0.45))
                                 .kerning(1)
                         }
                     } else {
@@ -352,7 +383,7 @@ struct ClipSlotView: View {
                 )
             }
 
-            Text(moment.kind == .free ? "★" : "\(index + 1)")
+            Text(moment.kind == .free ? "CAM" : "\(index + 1)")
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(.white.opacity(0.55))
                 .padding(.horizontal, 5)
@@ -394,13 +425,13 @@ struct VideoThumbnailView: View {
         let asset = AVURLAsset(url: url)
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
-        gen.maximumSize = CGSize(width: 300, height: 400)
+        gen.maximumSize = CGSize(width: 420, height: 240)
         guard let cgImg = try? await gen.image(at: .zero).image else { return nil }
         return UIImage(cgImage: cgImg)
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(selectedPage: .constant(1))
         .environmentObject(PulseStore())
 }

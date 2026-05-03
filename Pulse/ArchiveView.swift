@@ -7,17 +7,14 @@ import SwiftUI
 struct ArchiveView: View {
     @EnvironmentObject private var store: PulseStore
     @State private var selectedVlog: IdentifiableURL?
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
+    @State private var pendingDelete: IdentifiableURL?
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if store.allVlogs.isEmpty {
+            if store.vlogs.isEmpty {
                 emptyState
             } else {
                 ScrollView(showsIndicators: false) {
@@ -26,9 +23,15 @@ struct ArchiveView: View {
                             .padding(.horizontal, 22)
                             .padding(.top, 16)
 
-                        LazyVGrid(columns: columns, spacing: 10) {
-                            ForEach(store.allVlogs, id: \.absoluteString) { url in
-                                VlogCardView(url: url)
+                        LazyVStack(spacing: 14) {
+                            ForEach(store.vlogs, id: \.absoluteString) { url in
+                                VlogCardView(
+                                    url: url,
+                                    onDelete: {
+                                        pendingDelete = IdentifiableURL(url: url)
+                                        showingDeleteConfirmation = true
+                                    }
+                                )
                                     .onTapGesture { selectedVlog = IdentifiableURL(url: url) }
                             }
                         }
@@ -44,6 +47,17 @@ struct ArchiveView: View {
         .fullScreenCover(item: $selectedVlog) { item in
             VlogPlayerView(url: item.url)
         }
+        .confirmationDialog("このvlogを削除しますか？", isPresented: $showingDeleteConfirmation) {
+            Button("削除", role: .destructive) {
+                if let pendingDelete {
+                    store.deleteVlog(url: pendingDelete.url)
+                }
+                pendingDelete = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                pendingDelete = nil
+            }
+        }
     }
 
     // MARK: - Header
@@ -54,7 +68,7 @@ struct ArchiveView: View {
                 .font(.system(size: 32, weight: .black))
                 .foregroundStyle(.white)
                 .kerning(5)
-            Text("\(store.allVlogs.count) day\(store.allVlogs.count == 1 ? "" : "s") captured")
+            Text("\(store.vlogs.count) day\(store.vlogs.count == 1 ? "" : "s") captured")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.4))
                 .textCase(.uppercase)
@@ -83,6 +97,7 @@ struct ArchiveView: View {
 
 struct VlogCardView: View {
     let url: URL
+    let onDelete: () -> Void
     @State private var thumbnail: UIImage?
 
     var body: some View {
@@ -117,8 +132,27 @@ struct VlogCardView: View {
                 .background(.black.opacity(0.55))
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .padding(9)
+
+            HStack {
+                Spacer()
+                VStack {
+                    Button {
+                        onDelete()
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .background(.black.opacity(0.58))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(9)
+                    Spacer()
+                }
+            }
         }
-        .aspectRatio(9/16, contentMode: .fit)
+        .aspectRatio(16/9, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .task(id: url) { thumbnail = await makeThumbnail() }
     }
@@ -136,7 +170,7 @@ struct VlogCardView: View {
         let asset = AVURLAsset(url: url)
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
-        gen.maximumSize = CGSize(width: 400, height: 700)
+        gen.maximumSize = CGSize(width: 700, height: 400)
         let t = CMTime(seconds: 0.3, preferredTimescale: 600)
         guard let cgImg = try? await gen.image(at: t).image else { return nil }
         return UIImage(cgImage: cgImg)

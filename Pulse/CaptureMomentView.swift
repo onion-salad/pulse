@@ -11,12 +11,19 @@ private enum CapturePhase {
     case done
 }
 
+private enum RecordingProgressEdge {
+    case leading
+    case trailing
+    case top
+}
+
 // MARK: - CaptureMomentView
 
 struct CaptureMomentView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: PulseStore
     let moment: CaptureMoment
+    var onComplete: (() -> Void)?
 
     @State private var phase: CapturePhase = .recording
     @State private var errorMessage: String?
@@ -24,6 +31,8 @@ struct CaptureMomentView: View {
     @State private var customText: String = ""
     @State private var localRetakeCount: Int = 0
     @State private var capturedAt: Date = Date()
+    @State private var recordingProgress: CGFloat = 0
+    @State private var progressEdge: RecordingProgressEdge = .trailing
 
     private let trimmer = VideoTrimmer()
     private let maxRetakes = 2
@@ -64,33 +73,58 @@ struct CaptureMomentView: View {
     // MARK: - Recording View
 
     private var recordingView: some View {
-        ZStack {
-            CameraRecorderView(
-                outputURL: store.tempClipURL(for: moment),
-                duration: 5,
-                onFinish: { url in
-                    capturedAt = Date()
-                    withAnimation { phase = .trimming(tempURL: url) }
-                },
-                onError: { error in errorMessage = error.localizedDescription }
-            )
-            .ignoresSafeArea()
+        GeometryReader { proxy in
+            let safeBottom = proxy.safeAreaInsets.bottom
 
-            VStack(spacing: 0) {
-                topBar
-                    .padding(.top, 56)
-                Spacer()
-                recBadge
-                    .padding(.bottom, 52)
-                if let msg = errorMessage {
-                    Text(msg)
-                        .font(.footnote)
-                        .padding(10)
-                        .background(.black.opacity(0.7))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .foregroundStyle(.white)
-                        .padding(.bottom, 12)
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    ZStack {
+                        CameraRecorderView(
+                            outputURL: store.tempClipURL(for: moment),
+                            duration: 5,
+                            preferredVideoOrientation: .landscapeRight,
+                            onFinish: { url in
+                                capturedAt = Date()
+                                withAnimation { phase = .trimming(tempURL: url) }
+                            },
+                            onError: { error in errorMessage = error.localizedDescription }
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+
+                        if let msg = errorMessage {
+                            Text(msg)
+                                .font(.footnote)
+                                .padding(10)
+                                .background(.black.opacity(0.7))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 18)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(9 / 16, contentMode: .fit)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, safeBottom + 4)
                 }
+
+                captureIndicator
+                    .padding(.bottom, max(safeBottom, 2))
+                    .offset(y: 54)
+            }
+            .overlay(alignment: progressBarAlignment) {
+                recordingProgressBar(size: proxy.size)
+            }
+            .onAppear {
+                UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+                updateProgressEdge()
+                startRecordingProgress()
+            }
+            .onDisappear {
+                UIDevice.current.endGeneratingDeviceOrientationNotifications()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+                updateProgressEdge()
             }
         }
     }
@@ -100,11 +134,10 @@ struct CaptureMomentView: View {
             Spacer()
             VStack(spacing: 3) {
                 if moment.kind == .free {
-                    Text("FREE")
-                        .font(.system(size: 26, weight: .black))
-                        .foregroundStyle(.yellow)
-                        .kerning(3)
-                    Text("anytime slot")
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 28, weight: .black))
+                        .foregroundStyle(.white)
+                    Text("anytime")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.45))
                 } else {
@@ -140,6 +173,87 @@ struct CaptureMomentView: View {
         .padding(.vertical, 9)
         .background(.black.opacity(0.45))
         .clipShape(Capsule())
+    }
+
+    private var captureIndicator: some View {
+        ZStack {
+            Circle()
+                .stroke(.white.opacity(0.34), lineWidth: 4)
+                .frame(width: 82, height: 82)
+            Circle()
+                .fill(.white.opacity(0.92))
+                .frame(width: 68, height: 68)
+            Circle()
+                .fill(.red)
+                .frame(width: 10, height: 10)
+                .offset(y: -24)
+        }
+        .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
+        .accessibilityLabel("撮影中")
+    }
+
+    private func recordingProgressBar(size: CGSize) -> some View {
+        Group {
+            switch progressEdge {
+            case .leading, .trailing:
+                verticalRecordingProgressBar(height: size.height)
+                    .frame(width: 4, height: size.height)
+                    .padding(progressEdge == .leading ? .leading : .trailing, 1)
+            case .top:
+                horizontalRecordingProgressBar(width: size.width)
+                    .frame(width: size.width, height: 4)
+                    .padding(.top, 1)
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private func verticalRecordingProgressBar(height: CGFloat) -> some View {
+        ZStack(alignment: .top) {
+            Rectangle()
+                .fill(.white.opacity(0.16))
+            Rectangle()
+                .fill(.white)
+                .frame(height: height * recordingProgress)
+        }
+        .clipShape(Capsule())
+    }
+
+    private func horizontalRecordingProgressBar(width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            Rectangle()
+                .fill(.white.opacity(0.16))
+            Rectangle()
+                .fill(.white)
+                .frame(width: width * recordingProgress)
+        }
+        .clipShape(Capsule())
+    }
+
+    private var progressBarAlignment: Alignment {
+        switch progressEdge {
+        case .leading: return .leading
+        case .trailing: return .trailing
+        case .top: return .top
+        }
+    }
+
+    private func updateProgressEdge() {
+        switch UIDevice.current.orientation {
+        case .landscapeLeft:
+            progressEdge = .trailing
+        case .landscapeRight:
+            progressEdge = .leading
+        default:
+            progressEdge = .trailing
+        }
+    }
+
+    private func startRecordingProgress() {
+        recordingProgress = 0
+        withAnimation(.linear(duration: 5)) {
+            recordingProgress = 1
+        }
     }
 
     // MARK: - Processing / Done
@@ -183,7 +297,11 @@ struct CaptureMomentView: View {
             store.registerCapture(momentID: moment.id, url: finalURL, capturedAt: capturedAt)
             withAnimation { phase = .done }
             try? await Task.sleep(nanoseconds: 900_000_000)
-            dismiss()
+            if let onComplete {
+                onComplete()
+            } else {
+                dismiss()
+            }
         } catch {
             errorMessage = error.localizedDescription
             withAnimation { phase = .trimming(tempURL: tempURL) }
@@ -386,6 +504,7 @@ struct TrimView: View {
 struct CameraRecorderView: UIViewControllerRepresentable {
     let outputURL: URL
     let duration: TimeInterval
+    var preferredVideoOrientation: AVCaptureVideoOrientation = .landscapeRight
     let onFinish: (URL) -> Void
     let onError: (Error) -> Void
 
@@ -393,6 +512,7 @@ struct CameraRecorderView: UIViewControllerRepresentable {
         let vc = CameraRecorderViewController()
         vc.outputURL = outputURL
         vc.duration = duration
+        vc.preferredVideoOrientation = preferredVideoOrientation
         vc.onFinish = onFinish
         vc.onError = onError
         return vc
@@ -406,6 +526,7 @@ struct CameraRecorderView: UIViewControllerRepresentable {
 final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
     var outputURL: URL!
     var duration: TimeInterval = 5
+    var preferredVideoOrientation: AVCaptureVideoOrientation = .landscapeRight
     var onFinish: ((URL) -> Void)?
     var onError: ((Error) -> Void)?
 
@@ -423,6 +544,7 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.bounds
+        applyLandscapeOrientation()
     }
 
     private func configureAndStart() async {
@@ -438,6 +560,7 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
             layer.frame = view.bounds
             view.layer.insertSublayer(layer, at: 0)
             previewLayer = layer
+            applyLandscapeOrientation()
 
             DispatchQueue.global(qos: .userInitiated).async {
                 self.session.startRunning()
@@ -470,9 +593,7 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
         guard !didStartRecording else { return }
         didStartRecording = true
 
-        if let conn = movieOutput.connection(with: .video), conn.isVideoOrientationSupported {
-            conn.videoOrientation = .portrait
-        }
+        applyLandscapeOrientation()
 
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try? FileManager.default.removeItem(at: outputURL)
@@ -488,6 +609,27 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
                     from connections: [AVCaptureConnection], error: Error?) {
         session.stopRunning()
         if let error { onError?(error) } else { onFinish?(url) }
+    }
+
+    private func applyLandscapeOrientation() {
+        let orientation = resolvedLandscapeOrientation()
+        if let conn = movieOutput.connection(with: .video), conn.isVideoOrientationSupported {
+            conn.videoOrientation = orientation
+        }
+        if let conn = previewLayer?.connection, conn.isVideoOrientationSupported {
+            conn.videoOrientation = orientation
+        }
+    }
+
+    private func resolvedLandscapeOrientation() -> AVCaptureVideoOrientation {
+        switch UIDevice.current.orientation {
+        case .landscapeLeft:
+            return .landscapeRight
+        case .landscapeRight:
+            return .landscapeLeft
+        default:
+            return preferredVideoOrientation
+        }
     }
 }
 

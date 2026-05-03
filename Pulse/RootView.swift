@@ -7,15 +7,16 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .top) {
             TabView(selection: $page) {
-                ContentView().tag(0)
-                ArchiveView().tag(1)
+                CameraPage().tag(0)
+                ContentView(selectedPage: $page).tag(1)
+                ArchiveView().tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
 
             // Page indicator — top center
             HStack(spacing: 5) {
-                ForEach(0..<2, id: \.self) { i in
+                ForEach(0..<3, id: \.self) { i in
                     Capsule()
                         .fill(i == page ? Color.white : Color.white.opacity(0.22))
                         .frame(width: i == page ? 18 : 6, height: 4)
