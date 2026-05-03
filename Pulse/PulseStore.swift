@@ -22,6 +22,8 @@ final class PulseStore: ObservableObject {
         plan = DayPlan(dateKey: Self.dateKey(for: Date()), moments: [], vlogPath: nil)
     }
 
+    // MARK: - Lifecycle
+
     func load() {
         try? FileManager.default.createDirectory(at: storageURL, withIntermediateDirectories: true)
 
@@ -31,46 +33,62 @@ final class PulseStore: ObservableObject {
 
             if saved.dateKey == todayKey {
                 plan = saved
-                // Auto-compose if 11 clips are ready but no vlog yet (e.g. after a crash)
-                if plan.capturedCount == 11 && plan.vlogPath == nil && !isComposing {
+                if shouldAutoCompose(plan: plan) {
                     Task { await composeVlog() }
                 }
             } else {
-                // New day: silently compose yesterday's clips in the background if needed
-                if saved.capturedCount > 0 && saved.vlogPath == nil {
-                    let prevPlan = saved
-                    let prevOutput = storageURL.appendingPathComponent("vlog-\(prevPlan.dateKey).mp4")
-                    Task {
-                        let clips = prevPlan.moments.compactMap(\.clipURL)
-                        if !clips.isEmpty, !FileManager.default.fileExists(atPath: prevOutput.path) {
-                            _ = try? await composer.compose(clips: clips, outputURL: prevOutput)
-                        }
-                    }
+                // New day: compose any leftover clips from previous days first, then make a fresh plan.
+                let previous = saved
+                Task {
+                    await composeLeftover(plan: previous)
                 }
                 plan = Self.makePlan(for: Date())
                 save()
+                Task { await scheduleToday() }
             }
         } else {
             plan = Self.makePlan(for: Date())
             save()
+            Task { await scheduleToday() }
         }
     }
+
+    /// Compose a vlog for a finished day's plan if it has clips but no vlog yet.
+    private func composeLeftover(plan: DayPlan) async {
+        guard plan.capturedCount > 0, plan.vlogPath == nil else { return }
+        let output = storageURL.appendingPathComponent("vlog-\(plan.dateKey).mp4")
+        guard !FileManager.default.fileExists(atPath: output.path) else { return }
+        let captured = plan.moments.filter { $0.status == .captured }
+        guard !captured.isEmpty else { return }
+        _ = try? await composer.compose(moments: captured, outputURL: output)
+    }
+
+    private func shouldAutoCompose(plan: DayPlan) -> Bool {
+        plan.capturedCount > 0 && plan.vlogPath == nil && !isComposing
+    }
+
+    // MARK: - Schedule
 
     func scheduleToday() async {
         do {
             let granted = try await scheduler.requestPermission()
             guard granted else {
-                permissionMessage = "通知がオフです。Settingsで通知を許可すると、1日11回の撮影タイミングが届きます。"
+                permissionMessage = "通知がオフです。Settingsで通知を許可すると、撮影タイミングのお知らせが届きます。"
                 return
             }
-            plan = Self.makePlan(for: Date())
-            save()
+            // Re-use today's plan if it already exists; otherwise build a fresh one.
+            if plan.dateKey != Self.dateKey(for: Date()) || plan.moments.isEmpty {
+                plan = Self.makePlan(for: Date())
+                save()
+            }
             try await scheduler.schedule(moments: plan.moments)
             permissionMessage = nil
         } catch {
             permissionMessage = error.localizedDescription
         }
     }
+
+    // MARK: - Capture
 
     func openCaptureFromNotification(momentID: String?) {
         if let momentID, let id = UUID(uuidString: momentID) {
@@ -94,27 +112,50 @@ final class PulseStore: ObservableObject {
         storageURL.appendingPathComponent("temp-\(moment.id.uuidString).mov")
     }
 
-    func loadTestMoments(_ moments: [CaptureMoment]) {
-        plan.moments = moments
-        save()
-    }
-
     func clearForDebug() {
         plan = Self.makePlan(for: Date())
         save()
     }
 
-    func registerCapture(momentID: UUID, url: URL) {
+    func registerCapture(momentID: UUID, url: URL, capturedAt: Date = Date()) {
         guard let index = plan.moments.firstIndex(where: { $0.id == momentID }) else { return }
         plan.moments[index].clipPath = url.path
         plan.moments[index].status = .captured
+        plan.moments[index].capturedAt = capturedAt
         save()
 
-        // Auto-compose when all 11 clips are captured
-        if plan.capturedCount == 11 && plan.vlogPath == nil && !isComposing {
+        if plan.capturedCount == plan.totalSlots && plan.vlogPath == nil && !isComposing {
             Task { await composeVlog() }
         }
     }
+
+    func incrementRetake(for momentID: UUID) {
+        guard let index = plan.moments.firstIndex(where: { $0.id == momentID }) else { return }
+        plan.moments[index].retakeCount += 1
+        save()
+    }
+
+    func setCustomText(_ text: String?, for momentID: UUID) {
+        guard let index = plan.moments.firstIndex(where: { $0.id == momentID }) else { return }
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        plan.moments[index].customText = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        save()
+    }
+
+    /// Currently active hourly moment whose 5-minute window is open, or nil.
+    var activeHourlyMoment: CaptureMoment? {
+        let now = Date()
+        return plan.moments.first { m in
+            m.kind == .hourly && m.status == .scheduled && m.isWithinCaptureWindow(now: now)
+        }
+    }
+
+    /// The free slot (if not yet captured).
+    var availableFreeMoment: CaptureMoment? {
+        plan.moments.first { $0.kind == .free && $0.status == .scheduled }
+    }
+
+    // MARK: - Vlogs
 
     var allVlogs: [URL] {
         guard let files = try? FileManager.default.contentsOfDirectory(
@@ -126,8 +167,8 @@ final class PulseStore: ObservableObject {
     }
 
     func composeVlog() async {
-        let clips = plan.moments.compactMap(\.clipURL)
-        guard !clips.isEmpty else { return }
+        let captured = plan.moments.filter { $0.status == .captured }
+        guard !captured.isEmpty else { return }
 
         isComposing = true
         defer { isComposing = false }
@@ -137,7 +178,7 @@ final class PulseStore: ObservableObject {
             if FileManager.default.fileExists(atPath: output.path) {
                 try FileManager.default.removeItem(at: output)
             }
-            let url = try await composer.compose(clips: clips, outputURL: output)
+            let url = try await composer.compose(moments: captured, outputURL: output)
             plan.vlogPath = url.path
             save()
         } catch {
@@ -145,44 +186,51 @@ final class PulseStore: ObservableObject {
         }
     }
 
+    // MARK: - Persistence
+
     private func save() {
         guard let data = try? JSONEncoder().encode(plan) else { return }
         try? data.write(to: planURL, options: [.atomic])
     }
 
+    // MARK: - Plan generation
+
+    /// Build the day's plan: 1 hourly slot per hour from 7:00 to 24:00 (max 17),
+    /// skipping hours already in the past, plus exactly 1 free slot. Total max 18.
     private static func makePlan(for date: Date) -> DayPlan {
-        var calendar = Calendar.current
-        calendar.locale = Locale.current
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
 
-        var planDate = date
-        let eveningEnd = calendar.date(bySettingHour: 22, minute: 30, second: 0, of: planDate) ?? planDate
-        let minimumRemainingWindow: TimeInterval = 2 * 60 * 60
-
-        if date > eveningEnd.addingTimeInterval(-minimumRemainingWindow),
-           let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) {
-            planDate = tomorrow
-        }
-
-        let dayStart = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: planDate) ?? planDate
-        let dayEnd = calendar.date(bySettingHour: 22, minute: 30, second: 0, of: planDate) ?? planDate
-        let start = max(dayStart, planDate == date ? date.addingTimeInterval(60) : dayStart)
-        let span = max(Int(dayEnd.timeIntervalSince(start)), 1)
-        let offsets = Set((0..<40).map { _ in Int.random(in: 0..<span) })
-            .sorted()
-            .prefix(11)
-
-        let moments = offsets.map { offset in
-            CaptureMoment(
+        var hourlyMoments: [CaptureMoment] = []
+        for hour in 7...23 {  // 17 hourly slots: hour-bands 7-24
+            guard let slot = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: dayStart) else { continue }
+            if slot.addingTimeInterval(5 * 60) < date { continue }
+            hourlyMoments.append(CaptureMoment(
                 id: UUID(),
-                scheduledAt: start.addingTimeInterval(TimeInterval(offset)),
+                scheduledAt: slot,
                 clipPath: nil,
-                status: .scheduled
-            )
+                status: .scheduled,
+                kind: .hourly,
+                customText: nil,
+                retakeCount: 0,
+                capturedAt: nil
+            ))
         }
+
+        let freeMoment = CaptureMoment(
+            id: UUID(),
+            scheduledAt: dayStart,
+            clipPath: nil,
+            status: .scheduled,
+            kind: .free,
+            customText: nil,
+            retakeCount: 0,
+            capturedAt: nil
+        )
 
         return DayPlan(
-            dateKey: dateKey(for: planDate),
-            moments: moments.sorted { $0.scheduledAt < $1.scheduledAt },
+            dateKey: dateKey(for: date),
+            moments: hourlyMoments + [freeMoment],
             vlogPath: nil
         )
     }

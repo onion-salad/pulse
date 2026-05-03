@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -17,25 +17,21 @@
 		9D388FFB523157DF35454A75 /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */; };
 		AA11223344556677889900AA /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677889900BB /* ArchiveView.swift */; };
 		CC11223344556677889900CC /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11223344556677889900DD /* RootView.swift */; };
-		EE11223344556677889900EE /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF11223344556677889900FF /* DebugView.swift */; };
-		AB11223344556677889900AB /* TestVideoGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD11223344556677889900CD /* TestVideoGenerator.swift */; };
 		EF11223344556677889900EF /* VideoTrimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = GH11223344556677889900GH /* VideoTrimmer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
-		13FEF2D2118D74C3572DF349 /* Pulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13FEF2D2118D74C3572DF349 /* Pulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A66CFA62158D790C30E2FB1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7287F9A302CA0BEF8682A41D /* CaptureMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMomentView.swift; sourceTree = "<group>"; };
 		92516DB443DED4627483EBD9 /* VlogComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VlogComposer.swift; sourceTree = "<group>"; };
 		9A2CA89FD1A0CD1BE844A592 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9CC40775EEF0A05B18A64A07 /* PulseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseStore.swift; sourceTree = "<group>"; };
 		9D5309CAF2CC1BC7C626E937 /* PulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseApp.swift; sourceTree = "<group>"; };
-		D294E965355A4938AEDCE23C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		BB11223344556677889900BB /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
+		D294E965355A4938AEDCE23C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		DD11223344556677889900DD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		FF11223344556677889900FF /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
-		CD11223344556677889900CD /* TestVideoGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoGenerator.swift; sourceTree = "<group>"; };
 		GH11223344556677889900GH /* VideoTrimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimmer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -52,8 +48,6 @@
 				9D5309CAF2CC1BC7C626E937 /* PulseApp.swift */,
 				9CC40775EEF0A05B18A64A07 /* PulseStore.swift */,
 				DD11223344556677889900DD /* RootView.swift */,
-				FF11223344556677889900FF /* DebugView.swift */,
-				CD11223344556677889900CD /* TestVideoGenerator.swift */,
 				GH11223344556677889900GH /* VideoTrimmer.swift */,
 				92516DB443DED4627483EBD9 /* VlogComposer.swift */,
 			);
@@ -102,8 +96,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = AEADBFB0BC46A63478A94A51 /* Build configuration list for PBXProject "Pulse" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -136,8 +128,6 @@
 				2A294741604ED11BCA7E7E11 /* PulseApp.swift in Sources */,
 				5DA59D05C6A415418B6CD0BE /* PulseStore.swift in Sources */,
 				CC11223344556677889900CC /* RootView.swift in Sources */,
-				EE11223344556677889900EE /* DebugView.swift in Sources */,
-				AB11223344556677889900AB /* TestVideoGenerator.swift in Sources */,
 				EF11223344556677889900EF /* VideoTrimmer.swift in Sources */,
 				65D93EA5AB090805C32ECDDA /* VlogComposer.swift in Sources */,
 			);
@@ -209,11 +199,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 8UZA23MPK3;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Pulse;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Pulse records two-second moments when your daily prompts arrive.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Pulse records ambient audio for your two-second moments.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Pulse can save your finished daily vlog to your photo library.";
+				INFOPLIST_KEY_CFBundleDisplayName = MyVlog;
+				INFOPLIST_KEY_NSCameraUsageDescription = "MyVlogは通知が届いたタイミングで2秒の動画を撮影します。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "MyVlogは2秒の動画と一緒に音も記録します。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MyVlogは完成した1日のショートを写真ライブラリに保存できます。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -231,11 +222,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 8UZA23MPK3;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Pulse;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Pulse records two-second moments when your daily prompts arrive.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Pulse records ambient audio for your two-second moments.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Pulse can save your finished daily vlog to your photo library.";
+				INFOPLIST_KEY_CFBundleDisplayName = MyVlog;
+				INFOPLIST_KEY_NSCameraUsageDescription = "MyVlogは通知が届いたタイミングで2秒の動画を撮影します。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "MyVlogは2秒の動画と一緒に音も記録します。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MyVlogは完成した1日のショートを写真ライブラリに保存できます。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -21,8 +21,12 @@ struct CaptureMomentView: View {
     @State private var phase: CapturePhase = .recording
     @State private var errorMessage: String?
     @State private var momentIndex: Int = 0
+    @State private var customText: String = ""
+    @State private var localRetakeCount: Int = 0
+    @State private var capturedAt: Date = Date()
 
     private let trimmer = VideoTrimmer()
+    private let maxRetakes = 2
 
     var body: some View {
         ZStack {
@@ -34,8 +38,15 @@ struct CaptureMomentView: View {
             case .trimming(let tempURL):
                 TrimView(
                     tempURL: tempURL,
+                    customText: $customText,
+                    canRetake: localRetakeCount < maxRetakes,
+                    retakesLeft: maxRetakes - localRetakeCount,
                     onConfirm: { start in Task { await confirmTrim(tempURL: tempURL, startTime: start) } },
-                    onRetake: { withAnimation { phase = .recording } }
+                    onRetake: {
+                        localRetakeCount += 1
+                        store.incrementRetake(for: moment.id)
+                        withAnimation { phase = .recording }
+                    }
                 )
             case .processing:
                 processingView
@@ -45,6 +56,8 @@ struct CaptureMomentView: View {
         }
         .onAppear {
             momentIndex = store.plan.moments.firstIndex(where: { $0.id == moment.id }) ?? 0
+            customText = moment.customText ?? ""
+            localRetakeCount = moment.retakeCount
         }
     }
 
@@ -55,7 +68,10 @@ struct CaptureMomentView: View {
             CameraRecorderView(
                 outputURL: store.tempClipURL(for: moment),
                 duration: 5,
-                onFinish: { url in withAnimation { phase = .trimming(tempURL: url) } },
+                onFinish: { url in
+                    capturedAt = Date()
+                    withAnimation { phase = .trimming(tempURL: url) }
+                },
                 onError: { error in errorMessage = error.localizedDescription }
             )
             .ignoresSafeArea()
@@ -83,15 +99,33 @@ struct CaptureMomentView: View {
         HStack {
             Spacer()
             VStack(spacing: 3) {
-                Text("#\(momentIndex + 1)")
-                    .font(.system(size: 34, weight: .black))
-                    .foregroundStyle(.white)
-                Text("of 11")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.45))
+                if moment.kind == .free {
+                    Text("FREE")
+                        .font(.system(size: 26, weight: .black))
+                        .foregroundStyle(.yellow)
+                        .kerning(3)
+                    Text("anytime slot")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.45))
+                } else {
+                    Text("#\(momentIndex + 1)")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundStyle(.white)
+                    Text(timeRangeLabel)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .monospaced()
+                }
             }
             Spacer()
         }
+    }
+
+    private var timeRangeLabel: String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        let end = moment.scheduledAt.addingTimeInterval(5 * 60)
+        return "\(f.string(from: moment.scheduledAt)) – \(f.string(from: end))"
     }
 
     private var recBadge: some View {
@@ -145,7 +179,8 @@ struct CaptureMomentView: View {
             _ = try await trimmer.trim(inputURL: tempURL, startTime: startTime, duration: 2.0, outputURL: finalURL)
             try? FileManager.default.removeItem(at: tempURL)
 
-            store.registerCapture(momentID: moment.id, url: finalURL)
+            store.setCustomText(customText, for: moment.id)
+            store.registerCapture(momentID: moment.id, url: finalURL, capturedAt: capturedAt)
             withAnimation { phase = .done }
             try? await Task.sleep(nanoseconds: 900_000_000)
             dismiss()
@@ -160,19 +195,33 @@ struct CaptureMomentView: View {
 
 struct TrimView: View {
     let tempURL: URL
+    @Binding var customText: String
+    let canRetake: Bool
+    let retakesLeft: Int
     let onConfirm: (Double) -> Void
     let onRetake: () -> Void
 
     @State private var thumbnails: [UIImage] = []
     @State private var committedOffset: CGFloat
     @GestureState private var dragDelta: CGFloat = 0
+    @FocusState private var textFocused: Bool
 
     private let clipDuration: Double = 5.0
     private let selectDuration: Double = 2.0
     private let stripWidth: CGFloat = UIScreen.main.bounds.width - 40
 
-    init(tempURL: URL, onConfirm: @escaping (Double) -> Void, onRetake: @escaping () -> Void) {
+    init(
+        tempURL: URL,
+        customText: Binding<String>,
+        canRetake: Bool,
+        retakesLeft: Int,
+        onConfirm: @escaping (Double) -> Void,
+        onRetake: @escaping () -> Void
+    ) {
         self.tempURL = tempURL
+        self._customText = customText
+        self.canRetake = canRetake
+        self.retakesLeft = retakesLeft
         self.onConfirm = onConfirm
         self.onRetake = onRetake
         let ww = (UIScreen.main.bounds.width - 40) * CGFloat(2.0 / 5.0)
@@ -190,6 +239,7 @@ struct TrimView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+                .onTapGesture { textFocused = false }
 
             VStack(spacing: 0) {
                 Spacer()
@@ -204,11 +254,10 @@ struct TrimView: View {
                         .foregroundStyle(.white.opacity(0.35))
                         .kerning(1)
                 }
-                .padding(.bottom, 22)
+                .padding(.bottom, 18)
 
                 // Filmstrip
                 ZStack(alignment: .leading) {
-                    // Thumbnails
                     if thumbnails.isEmpty {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(.white.opacity(0.08))
@@ -226,7 +275,6 @@ struct TrimView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
 
-                    // Dark overlay + selection border
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(.black.opacity(0.62))
@@ -252,17 +300,49 @@ struct TrimView: View {
                         }
                 )
 
+                // Custom text input — center text on the final clip.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("CENTER TEXT (optional)")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .kerning(2)
+                    TextField("", text: $customText, prompt: Text("e.g. coffee time").foregroundColor(.white.opacity(0.3)))
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white)
+                        .focused($textFocused)
+                        .submitLabel(.done)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 11)
+                        .background(.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .frame(width: stripWidth)
+                .padding(.top, 18)
+
                 // Buttons
                 HStack(spacing: 12) {
-                    Button("Retake") { onRetake() }
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
+                    Button {
+                        if canRetake { onRetake() }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(canRetake ? "Retake" : "No more retakes")
+                                .font(.system(size: 16, weight: .medium))
+                            if canRetake {
+                                Text("\(retakesLeft) left")
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(.white.opacity(0.4))
+                            }
+                        }
+                        .foregroundStyle(canRetake ? .white.opacity(0.7) : .white.opacity(0.25))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(.white.opacity(0.08))
+                        .padding(.vertical, 14)
+                        .background(.white.opacity(canRetake ? 0.08 : 0.04))
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .disabled(!canRetake)
 
                     Button {
+                        textFocused = false
                         onConfirm(startTime)
                     } label: {
                         Text("Use this")
@@ -274,9 +354,9 @@ struct TrimView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
-                .padding(.top, 22)
+                .padding(.top, 16)
                 .frame(width: stripWidth)
-                .padding(.bottom, 52)
+                .padding(.bottom, 36)
             }
         }
         .task { await loadThumbnails() }
