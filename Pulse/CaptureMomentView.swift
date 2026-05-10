@@ -17,6 +17,20 @@ private enum RecordingProgressEdge {
     case top
 }
 
+private enum CaptureZoomLevel: CGFloat, CaseIterable {
+    case half = 0.5
+    case one = 1
+    case two = 2
+
+    var title: String {
+        switch self {
+        case .half: "0.5"
+        case .one: "1"
+        case .two: "2"
+        }
+    }
+}
+
 // MARK: - CaptureMomentView
 
 struct CaptureMomentView: View {
@@ -36,6 +50,7 @@ struct CaptureMomentView: View {
     @State private var recordingTrigger: UUID?
     @State private var isRecording = false
     @State private var currentTime = Date()
+    @State private var zoomLevel: CaptureZoomLevel = .one
 
     private let trimmer = VideoTrimmer()
     private let maxRetakes = 2
@@ -84,6 +99,7 @@ struct CaptureMomentView: View {
                 CameraRecorderView(
                     outputURL: store.tempClipURL(for: moment),
                     duration: 2,
+                    zoomLevel: zoomLevel.rawValue,
                     recordingTrigger: recordingTrigger,
                     onFinish: { url in
                         capturedAt = Date()
@@ -111,15 +127,19 @@ struct CaptureMomentView: View {
                         .padding(.bottom, 150)
                 }
 
-                Button {
-                    startManualRecording()
-                } label: {
-                    captureIndicator
+                VStack(spacing: 12) {
+                    zoomSelector
+
+                    Button {
+                        startManualRecording()
+                    } label: {
+                        captureIndicator
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRecording)
                 }
-                .buttonStyle(.plain)
-                .disabled(isRecording)
-                    .padding(.bottom, max(safeBottom, 2))
-                    .offset(y: 54)
+                .padding(.bottom, max(safeBottom, 2))
+                .offset(y: 54)
             }
             .overlay(alignment: progressBarAlignment) {
                 if isRecording {
@@ -177,6 +197,37 @@ struct CaptureMomentView: View {
         }
         .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
         .accessibilityLabel("撮影開始")
+    }
+
+    private var zoomSelector: some View {
+        HStack(spacing: 4) {
+            ForEach(CaptureZoomLevel.allCases, id: \.self) { level in
+                Button {
+                    guard !isRecording else { return }
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        zoomLevel = level
+                    }
+                } label: {
+                    Text(level.title)
+                        .font(.system(size: 12, weight: .black, design: .monospaced))
+                        .foregroundStyle(zoomLevel == level ? .black : .white.opacity(0.62))
+                        .frame(width: 38, height: 30)
+                        .background(zoomLevel == level ? .white : .white.opacity(0.11))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isRecording)
+            }
+        }
+        .padding(4)
+        .background(.black.opacity(0.42))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        )
+        .rotationEffect(.degrees(90))
+        .opacity(isRecording ? 0.45 : 1)
     }
 
     private func recordingProgressBar(size: CGSize) -> some View {
@@ -309,8 +360,7 @@ struct CaptureMomentView: View {
             if FileManager.default.fileExists(atPath: finalURL.path) {
                 try FileManager.default.removeItem(at: finalURL)
             }
-            _ = try await trimmer.applyVlogLook(inputURL: tempURL, outputURL: finalURL)
-            try? FileManager.default.removeItem(at: tempURL)
+            try FileManager.default.moveItem(at: tempURL, to: finalURL)
 
             store.setCustomText(customText, for: moment.id)
             store.registerCapture(momentID: moment.id, url: finalURL, capturedAt: capturedAt)
@@ -523,6 +573,7 @@ struct TrimView: View {
 struct CameraRecorderView: UIViewControllerRepresentable {
     let outputURL: URL
     let duration: TimeInterval
+    let zoomLevel: CGFloat
     let recordingTrigger: UUID?
     let onFinish: (URL) -> Void
     let onError: (Error) -> Void
@@ -531,6 +582,7 @@ struct CameraRecorderView: UIViewControllerRepresentable {
         let vc = CameraRecorderViewController()
         vc.outputURL = outputURL
         vc.duration = duration
+        vc.zoomLevel = zoomLevel
         vc.recordingTrigger = recordingTrigger
         vc.onFinish = onFinish
         vc.onError = onError
@@ -538,6 +590,7 @@ struct CameraRecorderView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: CameraRecorderViewController, context: Context) {
+        uiViewController.updateZoomLevel(zoomLevel)
         uiViewController.refreshPreviewOrientation()
         uiViewController.startRecordingIfNeeded(trigger: recordingTrigger)
     }
@@ -548,6 +601,7 @@ struct CameraRecorderView: UIViewControllerRepresentable {
 final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
     var outputURL: URL!
     var duration: TimeInterval = 5
+    var zoomLevel: CGFloat = 1
     var recordingTrigger: UUID?
     var onFinish: ((URL) -> Void)?
     var onError: ((Error) -> Void)?
@@ -555,6 +609,7 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
     private let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var videoInput: AVCaptureDeviceInput?
     private var didStartRecording = false
     private var lastHandledTrigger: UUID?
     private var allowsSession = true
@@ -615,11 +670,15 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
         session.sessionPreset = .high
         defer { session.commitConfiguration() }
 
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+        guard let camera = cameraDevice(for: zoomLevel) else {
             throw CameraRecorderError.cameraUnavailable
         }
         let cameraInput = try AVCaptureDeviceInput(device: camera)
-        if session.canAddInput(cameraInput) { session.addInput(cameraInput) }
+        if session.canAddInput(cameraInput) {
+            session.addInput(cameraInput)
+            videoInput = cameraInput
+            applyZoom(level: zoomLevel, to: camera)
+        }
 
         if let mic = AVCaptureDevice.default(for: .audio),
            let audioInput = try? AVCaptureDeviceInput(device: mic),
@@ -638,9 +697,30 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
         applyPreviewOrientation()
     }
 
+    func updateZoomLevel(_ level: CGFloat) {
+        guard abs(level - zoomLevel) > 0.01 else {
+            if let device = videoInput?.device {
+                applyZoom(level: level, to: device)
+            }
+            return
+        }
+        zoomLevel = level
+        guard !movieOutput.isRecording else { return }
+
+        do {
+            try replaceVideoInput(for: level)
+        } catch {
+            onError?(error)
+        }
+    }
+
     private func startRecordingOnce() {
         guard !didStartRecording else { return }
         didStartRecording = true
+
+        if let device = videoInput?.device {
+            applyZoom(level: zoomLevel, to: device)
+        }
 
         if let conn = movieOutput.connection(with: .video), conn.isVideoOrientationSupported {
             conn.videoOrientation = currentVideoOrientation()
@@ -684,6 +764,53 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
             return .portrait
         default:
             return view.bounds.width > view.bounds.height ? .landscapeRight : .portrait
+        }
+    }
+
+    private func replaceVideoInput(for level: CGFloat) throws {
+        guard let camera = cameraDevice(for: level) else {
+            throw CameraRecorderError.cameraUnavailable
+        }
+        if videoInput?.device.uniqueID == camera.uniqueID {
+            applyZoom(level: level, to: camera)
+            return
+        }
+
+        let nextInput = try AVCaptureDeviceInput(device: camera)
+        session.beginConfiguration()
+        if let videoInput {
+            session.removeInput(videoInput)
+        }
+        if session.canAddInput(nextInput) {
+            session.addInput(nextInput)
+            videoInput = nextInput
+            applyZoom(level: level, to: camera)
+        }
+        session.commitConfiguration()
+        applyPreviewOrientation()
+    }
+
+    private func cameraDevice(for level: CGFloat) -> AVCaptureDevice? {
+        if level < 1,
+           let ultraWide = AVCaptureDevice.default(.builtInUltraWideCamera, for: .video, position: .back) {
+            return ultraWide
+        }
+
+        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+    }
+
+    private func applyZoom(level: CGFloat, to device: AVCaptureDevice) {
+        let target: CGFloat = level < 1 ? 1 : level
+        let minZoom = device.minAvailableVideoZoomFactor
+        let maxZoom = device.maxAvailableVideoZoomFactor
+        let clamped = min(max(target, minZoom), maxZoom)
+
+        do {
+            try device.lockForConfiguration()
+            device.videoZoomFactor = clamped
+            device.unlockForConfiguration()
+        } catch {
+            onError?(error)
         }
     }
 }

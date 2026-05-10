@@ -8,7 +8,7 @@ struct VideoTrimmer {
         startTime: Double,
         duration: Double,
         outputURL: URL,
-        appliesVlogLook: Bool = true
+        appliesVlogLook: Bool = false
     ) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
 

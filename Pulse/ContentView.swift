@@ -1,5 +1,4 @@
 import AVFoundation
-import AVKit
 import SwiftUI
 
 // MARK: - ContentView
@@ -8,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject private var store: PulseStore
     @State private var pendingDelete: MyVlogDeleteItem?
     @State private var showingComposer = false
+    @State private var playingClipID: UUID?
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 10)
@@ -128,6 +128,7 @@ struct ContentView: View {
                     moment: row.moment,
                     index: row.index,
                     isHourlyActive: false,
+                    isPlaying: playingClipID == row.moment.id,
                     onDelete: {
                         pendingDelete = .clip(row.moment)
                     }
@@ -148,6 +149,13 @@ struct ContentView: View {
     }
 
     private func handleSlotTap(moment: CaptureMoment) {
+        if moment.status == .captured, moment.clipURL != nil {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                playingClipID = playingClipID == moment.id ? nil : moment.id
+            }
+            return
+        }
+
         guard moment.status == .scheduled else { return }
         store.selectedMomentID = moment.id
         store.showingCapture = true
@@ -221,12 +229,19 @@ struct ClipSlotView: View {
     let moment: CaptureMoment
     let index: Int
     let isHourlyActive: Bool
+    let isPlaying: Bool
     var onDelete: (() -> Void)?
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             if let url = moment.clipURL {
-                VideoThumbnailView(url: url)
+                Group {
+                    if isPlaying {
+                        MyVlogInlineClipPlayer(url: url)
+                    } else {
+                        VideoThumbnailView(url: url)
+                    }
+                }
                     .overlay {
                         Text(moment.captureTimeLabel)
                             .font(.system(size: 30, weight: .black, design: .monospaced))
@@ -277,6 +292,59 @@ struct ClipSlotView: View {
 
         }
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+}
+
+struct MyVlogInlineClipPlayer: View {
+    let url: URL
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        Group {
+            if let player {
+                MyVlogPlayerLayer(player: player)
+            } else {
+                Color.black
+            }
+        }
+        .task(id: url) {
+            player?.pause()
+            let nextPlayer = AVPlayer(url: url)
+            player = nextPlayer
+            nextPlayer.play()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
+            guard let player, notification.object as? AVPlayerItem === player.currentItem else { return }
+            player.seek(to: .zero)
+            player.play()
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
+        }
+    }
+}
+
+private struct MyVlogPlayerLayer: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> MyVlogPlayerSurfaceView {
+        let view = MyVlogPlayerSurfaceView()
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        return view
+    }
+
+    func updateUIView(_ uiView: MyVlogPlayerSurfaceView, context: Context) {
+        uiView.playerLayer.player = player
+    }
+}
+
+private final class MyVlogPlayerSurfaceView: UIView {
+    override static var layerClass: AnyClass { AVPlayerLayer.self }
+
+    var playerLayer: AVPlayerLayer {
+        layer as! AVPlayerLayer
     }
 }
 
