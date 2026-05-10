@@ -15,6 +15,7 @@ targets:
     sources:
       - path: Pulse
     resources:
+      - path: Pulse/Assets.xcassets
       - path: Pulse/city_drift.mp3
       - path: Pulse/golden_hour.mp3
       - path: Pulse/window_film.mp3

@@ -184,18 +184,19 @@ struct VlogComposer {
 
     // MARK: - Overlay layer
 
-    /// isGeometryFlipped = true → y=0 at top of frame, y increases downward.
+    /// isGeometryFlipped = true -> y=0 at top of frame, y increases downward.
     private func makeOverlayLayer(text: String?, timestamp: Date?) -> CALayer {
         let container = CALayer()
         container.frame = CGRect(origin: .zero, size: outputSize)
         container.isGeometryFlipped = true
 
-        // Center text is only used when a clip has no timestamp.
-        if let text, !text.isEmpty, timestamp == nil {
+        let trimmedText = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let trimmedText, !trimmedText.isEmpty, timestamp == nil {
             let tl = CATextLayer()
-            tl.string = text
+            tl.string = trimmedText
             tl.alignmentMode = .center
-            tl.font = UIFont.systemFont(ofSize: 110, weight: .heavy).fontName as CFTypeRef
+            tl.font = UIFont.monospacedSystemFont(ofSize: 110, weight: .heavy).fontName as CFTypeRef
             tl.fontSize = 110
             tl.foregroundColor = UIColor.white.cgColor
             tl.contentsScale = 2
@@ -214,9 +215,10 @@ struct VlogComposer {
             container.addSublayer(tl)
         }
 
-        // Centered timestamp.
         if let ts = timestamp {
-            let timeFmt = DateFormatter(); timeFmt.locale = Locale(identifier: "en_US_POSIX"); timeFmt.dateFormat = "HH:mm"
+            let timeFmt = DateFormatter()
+            timeFmt.locale = Locale(identifier: "en_US_POSIX")
+            timeFmt.dateFormat = "HH:mm"
 
             let timeLayer = CATextLayer()
             timeLayer.string = timeFmt.string(from: ts)
@@ -230,13 +232,37 @@ struct VlogComposer {
             timeLayer.shadowRadius  = 12
             timeLayer.shadowOffset  = CGSize(width: 0, height: 4)
             let height: CGFloat = 160
+            let hasCaption = !(trimmedText?.isEmpty ?? true)
             timeLayer.frame = CGRect(
                 x: 0,
-                y: (outputSize.height - height) / 2,
+                y: (outputSize.height - height) / 2 - (hasCaption ? 48 : 0),
                 width: outputSize.width,
                 height: height
             )
             container.addSublayer(timeLayer)
+
+            if let trimmedText, !trimmedText.isEmpty {
+                let captionFontSize: CGFloat = 72
+                let captionLayer = CATextLayer()
+                captionLayer.string = trimmedText
+                captionLayer.alignmentMode = .center
+                captionLayer.font = UIFont.monospacedSystemFont(ofSize: captionFontSize, weight: .heavy).fontName as CFTypeRef
+                captionLayer.fontSize = captionFontSize
+                captionLayer.foregroundColor = UIColor.white.withAlphaComponent(0.92).cgColor
+                captionLayer.contentsScale = 2
+                captionLayer.isWrapped = true
+                captionLayer.shadowColor = UIColor.black.cgColor
+                captionLayer.shadowOpacity = 0.45
+                captionLayer.shadowRadius = 10
+                captionLayer.shadowOffset = CGSize(width: 0, height: 3)
+                captionLayer.frame = CGRect(
+                    x: 180,
+                    y: outputSize.height / 2 + 52,
+                    width: outputSize.width - 360,
+                    height: 150
+                )
+                container.addSublayer(captionLayer)
+            }
         }
 
         return container

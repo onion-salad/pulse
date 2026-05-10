@@ -278,7 +278,12 @@ struct CaptureMomentView: View {
             if FileManager.default.fileExists(atPath: finalURL.path) {
                 try FileManager.default.removeItem(at: finalURL)
             }
-            _ = try await trimmer.trim(inputURL: tempURL, startTime: startTime, duration: 2.0, outputURL: finalURL)
+            _ = try await trimmer.trim(
+                inputURL: tempURL,
+                startTime: startTime,
+                duration: 2.0,
+                outputURL: finalURL
+            )
             try? FileManager.default.removeItem(at: tempURL)
 
             store.setCustomText(customText, for: moment.id)
@@ -304,7 +309,8 @@ struct CaptureMomentView: View {
             if FileManager.default.fileExists(atPath: finalURL.path) {
                 try FileManager.default.removeItem(at: finalURL)
             }
-            try FileManager.default.moveItem(at: tempURL, to: finalURL)
+            _ = try await trimmer.applyVlogLook(inputURL: tempURL, outputURL: finalURL)
+            try? FileManager.default.removeItem(at: tempURL)
 
             store.setCustomText(customText, for: moment.id)
             store.registerCapture(momentID: moment.id, url: finalURL, capturedAt: capturedAt)

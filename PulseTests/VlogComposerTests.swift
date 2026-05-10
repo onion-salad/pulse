@@ -24,6 +24,21 @@ final class VlogComposerTests: XCTestCase {
         XCTAssertNil(item.videoComposition?.animationTool)
     }
 
+    func testApplyVlogLookExportsFilteredClip() async throws {
+        let movieURL = try await Self.makeMovieFixture()
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pulse-filtered-\(UUID().uuidString).mov")
+
+        let exportedURL = try await VideoTrimmer().applyVlogLook(
+            inputURL: movieURL,
+            outputURL: outputURL
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: exportedURL.path))
+        let attributes = try FileManager.default.attributesOfItem(atPath: exportedURL.path)
+        XCTAssertGreaterThan(attributes[.size] as? UInt64 ?? 0, 0)
+    }
+
     private static func makeMovieFixture() async throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pulse-fixture-\(UUID().uuidString).mov")

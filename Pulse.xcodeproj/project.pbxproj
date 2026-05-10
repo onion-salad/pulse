@@ -23,6 +23,7 @@
 		9D388FFB523157DF35454A75 /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */; };
 		A6959306C479159D564F2130 /* city_drift.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = B05F1EA753B45CAF867C39D5 /* city_drift.mp3 */; };
 		C289BAFF8499F71FE4B1B213 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FB990E3E89CC7CEF2054373 /* ArchiveView.swift */; };
+		D89BE77424B91E56B9FF1441 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0EEF346D1A5F99B6D75474EC /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +39,7 @@
 /* Begin PBXFileReference section */
 		01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
 		0BA8680471F74A0C220A3F47 /* VideoTrimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimmer.swift; sourceTree = "<group>"; };
+		0EEF346D1A5F99B6D75474EC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0FB990E3E89CC7CEF2054373 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
 		1122D973292F1D1FA4626ACE /* window_film.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = window_film.mp3; sourceTree = "<group>"; };
 		13FEF2D2118D74C3572DF349 /* Pulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -62,6 +64,7 @@
 			children = (
 				3A66CFA62158D790C30E2FB1 /* AppDelegate.swift */,
 				0FB990E3E89CC7CEF2054373 /* ArchiveView.swift */,
+				0EEF346D1A5F99B6D75474EC /* Assets.xcassets */,
 				FF60C14E63945E5EBDB9F8EE /* CameraPage.swift */,
 				7287F9A302CA0BEF8682A41D /* CaptureMomentView.swift */,
 				B05F1EA753B45CAF867C39D5 /* city_drift.mp3 */,
@@ -172,6 +175,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D89BE77424B91E56B9FF1441 /* Assets.xcassets in Resources */,
 				A6959306C479159D564F2130 /* city_drift.mp3 in Resources */,
 				582FD92026F1213F5267F266 /* golden_hour.mp3 in Resources */,
 				2D07F199F5008A6C8A04AD66 /* window_film.mp3 in Resources */,
