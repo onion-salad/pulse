@@ -7,8 +7,8 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .top) {
             TabView(selection: $page) {
-                CameraPage().tag(0)
-                ContentView(selectedPage: $page).tag(1)
+                CameraPage(isActive: page == 0).tag(0)
+                ContentView().tag(1)
                 ArchiveView().tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -24,6 +24,12 @@ struct RootView: View {
                 }
             }
             .padding(.top, 6)
+        }
+        .onChange(of: store.showingCapture) { _, showing in
+            if showing {
+                page = 0
+                store.showingCapture = false
+            }
         }
         .preferredColorScheme(.dark)
     }

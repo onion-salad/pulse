@@ -8,39 +8,52 @@
 
 /* Begin PBXBuildFile section */
 		2A294741604ED11BCA7E7E11 /* PulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D5309CAF2CC1BC7C626E937 /* PulseApp.swift */; };
+		2D07F199F5008A6C8A04AD66 /* window_film.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 1122D973292F1D1FA4626ACE /* window_film.mp3 */; };
 		2DDF84152966AA5717DC726F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D294E965355A4938AEDCE23C /* Models.swift */; };
+		30EBC276B2390052C00387C6 /* VideoTrimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA8680471F74A0C220A3F47 /* VideoTrimmer.swift */; };
 		3D10E0822C38DC52C16C8ED3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A66CFA62158D790C30E2FB1 /* AppDelegate.swift */; };
+		582FD92026F1213F5267F266 /* golden_hour.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = F3F85A5D89F17AA0ECBBCE1D /* golden_hour.mp3 */; };
 		5DA59D05C6A415418B6CD0BE /* PulseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC40775EEF0A05B18A64A07 /* PulseStore.swift */; };
 		65D93EA5AB090805C32ECDDA /* VlogComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92516DB443DED4627483EBD9 /* VlogComposer.swift */; };
 		6C6266F065F4CE876C13DAC9 /* CaptureMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7287F9A302CA0BEF8682A41D /* CaptureMomentView.swift */; };
 		6F3AD80DC75ABAE3A299B078 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A2CA89FD1A0CD1BE844A592 /* ContentView.swift */; };
+		75B6C8032FEC8AF08B8E7651 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25436A7A09B0BECAD57BD878 /* RootView.swift */; };
+		825E82B7F8E1FCC79F0ECD86 /* VlogComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B899DCCB2990BB5A59500DEC /* VlogComposerTests.swift */; };
+		98057370312A8855488FC500 /* CameraPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF60C14E63945E5EBDB9F8EE /* CameraPage.swift */; };
 		9D388FFB523157DF35454A75 /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */; };
-		AA11223344556677889900AA /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677889900BB /* ArchiveView.swift */; };
-		CC11223344556677889900CC /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11223344556677889900DD /* RootView.swift */; };
-		EF11223344556677889900EF /* VideoTrimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = GH11223344556677889900GH /* VideoTrimmer.swift */; };
-		CP11223344556677889900CP /* CameraPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CQ11223344556677889900CQ /* CameraPage.swift */; };
-		MA11223344556677889900MA /* city_drift.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = MR11223344556677889900MR /* city_drift.mp3 */; };
-		MB11223344556677889900MB /* golden_hour.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = MS11223344556677889900MS /* golden_hour.mp3 */; };
-		MC11223344556677889900MC /* window_film.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = MT11223344556677889900MT /* window_film.mp3 */; };
+		A6959306C479159D564F2130 /* city_drift.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = B05F1EA753B45CAF867C39D5 /* city_drift.mp3 */; };
+		C289BAFF8499F71FE4B1B213 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FB990E3E89CC7CEF2054373 /* ArchiveView.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EE9EFEEC20EB618CA7451ADB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 84FEC84833EC6BF77563A3F6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CF79B1BAD3D70F54153FE0B3;
+			remoteInfo = Pulse;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
+		0BA8680471F74A0C220A3F47 /* VideoTrimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimmer.swift; sourceTree = "<group>"; };
+		0FB990E3E89CC7CEF2054373 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
+		1122D973292F1D1FA4626ACE /* window_film.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = window_film.mp3; sourceTree = "<group>"; };
 		13FEF2D2118D74C3572DF349 /* Pulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		25436A7A09B0BECAD57BD878 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		3A66CFA62158D790C30E2FB1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		4FBA30D234A433E58E16508B /* PulseTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PulseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7287F9A302CA0BEF8682A41D /* CaptureMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureMomentView.swift; sourceTree = "<group>"; };
 		92516DB443DED4627483EBD9 /* VlogComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VlogComposer.swift; sourceTree = "<group>"; };
 		9A2CA89FD1A0CD1BE844A592 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9CC40775EEF0A05B18A64A07 /* PulseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseStore.swift; sourceTree = "<group>"; };
 		9D5309CAF2CC1BC7C626E937 /* PulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PulseApp.swift; sourceTree = "<group>"; };
-		BB11223344556677889900BB /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
+		B05F1EA753B45CAF867C39D5 /* city_drift.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = city_drift.mp3; sourceTree = "<group>"; };
+		B899DCCB2990BB5A59500DEC /* VlogComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VlogComposerTests.swift; sourceTree = "<group>"; };
 		D294E965355A4938AEDCE23C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		DD11223344556677889900DD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		GH11223344556677889900GH /* VideoTrimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimmer.swift; sourceTree = "<group>"; };
-		CQ11223344556677889900CQ /* CameraPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPage.swift; sourceTree = "<group>"; };
-		MR11223344556677889900MR /* city_drift.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = city_drift.mp3; sourceTree = "<group>"; };
-		MS11223344556677889900MS /* golden_hour.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = golden_hour.mp3; sourceTree = "<group>"; };
-		MT11223344556677889900MT /* window_film.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = window_film.mp3; sourceTree = "<group>"; };
+		F3F85A5D89F17AA0ECBBCE1D /* golden_hour.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = golden_hour.mp3; sourceTree = "<group>"; };
+		FF60C14E63945E5EBDB9F8EE /* CameraPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPage.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -48,20 +61,20 @@
 			isa = PBXGroup;
 			children = (
 				3A66CFA62158D790C30E2FB1 /* AppDelegate.swift */,
-				BB11223344556677889900BB /* ArchiveView.swift */,
+				0FB990E3E89CC7CEF2054373 /* ArchiveView.swift */,
+				FF60C14E63945E5EBDB9F8EE /* CameraPage.swift */,
 				7287F9A302CA0BEF8682A41D /* CaptureMomentView.swift */,
+				B05F1EA753B45CAF867C39D5 /* city_drift.mp3 */,
 				9A2CA89FD1A0CD1BE844A592 /* ContentView.swift */,
+				F3F85A5D89F17AA0ECBBCE1D /* golden_hour.mp3 */,
 				D294E965355A4938AEDCE23C /* Models.swift */,
 				01996E3ABF13BE648BFBF8B7 /* NotificationScheduler.swift */,
 				9D5309CAF2CC1BC7C626E937 /* PulseApp.swift */,
 				9CC40775EEF0A05B18A64A07 /* PulseStore.swift */,
-				DD11223344556677889900DD /* RootView.swift */,
-				GH11223344556677889900GH /* VideoTrimmer.swift */,
-				CQ11223344556677889900CQ /* CameraPage.swift */,
-				MR11223344556677889900MR /* city_drift.mp3 */,
-				MS11223344556677889900MS /* golden_hour.mp3 */,
-				MT11223344556677889900MT /* window_film.mp3 */,
+				25436A7A09B0BECAD57BD878 /* RootView.swift */,
+				0BA8680471F74A0C220A3F47 /* VideoTrimmer.swift */,
 				92516DB443DED4627483EBD9 /* VlogComposer.swift */,
+				1122D973292F1D1FA4626ACE /* window_film.mp3 */,
 			);
 			path = Pulse;
 			sourceTree = "<group>";
@@ -70,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				13FEF2D2118D74C3572DF349 /* Pulse.app */,
+				4FBA30D234A433E58E16508B /* PulseTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -78,19 +92,44 @@
 			isa = PBXGroup;
 			children = (
 				16C8605271C6A45188D07E13 /* Pulse */,
+				FCB0E6001B954CCA450AA55C /* PulseTests */,
 				1FEE830988994786371D8E45 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		FCB0E6001B954CCA450AA55C /* PulseTests */ = {
+			isa = PBXGroup;
+			children = (
+				B899DCCB2990BB5A59500DEC /* VlogComposerTests.swift */,
+			);
+			path = PulseTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		26CB5097CD9CC52FD2F253AB /* PulseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F2F1EA2CB05C310F102D486E /* Build configuration list for PBXNativeTarget "PulseTests" */;
+			buildPhases = (
+				8B00C375CD98515701D2325C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				43B12092B94F779018A5F285 /* PBXTargetDependency */,
+			);
+			name = PulseTests;
+			productName = PulseTests;
+			productReference = 4FBA30D234A433E58E16508B /* PulseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		CF79B1BAD3D70F54153FE0B3 /* Pulse */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9608D96881FD5C17BB380FA0 /* Build configuration list for PBXNativeTarget "Pulse" */;
 			buildPhases = (
 				D70CFAE236269B6E146109F4 /* Sources */,
-				RR11223344556677889900RR /* Resources */,
+				606EBA1EB03BF3A2D7674713 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -123,46 +162,80 @@
 			projectRoot = "";
 			targets = (
 				CF79B1BAD3D70F54153FE0B3 /* Pulse */,
+				26CB5097CD9CC52FD2F253AB /* PulseTests */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		606EBA1EB03BF3A2D7674713 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6959306C479159D564F2130 /* city_drift.mp3 in Resources */,
+				582FD92026F1213F5267F266 /* golden_hour.mp3 in Resources */,
+				2D07F199F5008A6C8A04AD66 /* window_film.mp3 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		8B00C375CD98515701D2325C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				825E82B7F8E1FCC79F0ECD86 /* VlogComposerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D70CFAE236269B6E146109F4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				3D10E0822C38DC52C16C8ED3 /* AppDelegate.swift in Sources */,
-				AA11223344556677889900AA /* ArchiveView.swift in Sources */,
+				C289BAFF8499F71FE4B1B213 /* ArchiveView.swift in Sources */,
+				98057370312A8855488FC500 /* CameraPage.swift in Sources */,
 				6C6266F065F4CE876C13DAC9 /* CaptureMomentView.swift in Sources */,
 				6F3AD80DC75ABAE3A299B078 /* ContentView.swift in Sources */,
 				2DDF84152966AA5717DC726F /* Models.swift in Sources */,
 				9D388FFB523157DF35454A75 /* NotificationScheduler.swift in Sources */,
 				2A294741604ED11BCA7E7E11 /* PulseApp.swift in Sources */,
 				5DA59D05C6A415418B6CD0BE /* PulseStore.swift in Sources */,
-				CC11223344556677889900CC /* RootView.swift in Sources */,
-				EF11223344556677889900EF /* VideoTrimmer.swift in Sources */,
+				75B6C8032FEC8AF08B8E7651 /* RootView.swift in Sources */,
+				30EBC276B2390052C00387C6 /* VideoTrimmer.swift in Sources */,
 				65D93EA5AB090805C32ECDDA /* VlogComposer.swift in Sources */,
-				CP11223344556677889900CP /* CameraPage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXResourcesBuildPhase section */
-		RR11223344556677889900RR /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				MA11223344556677889900MA /* city_drift.mp3 in Resources */,
-				MB11223344556677889900MB /* golden_hour.mp3 in Resources */,
-				MC11223344556677889900MC /* window_film.mp3 in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
+/* Begin PBXTargetDependency section */
+		43B12092B94F779018A5F285 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CF79B1BAD3D70F54153FE0B3 /* Pulse */;
+			targetProxy = EE9EFEEC20EB618CA7451ADB /* PBXContainerItemProxy */;
 		};
-/* End PBXResourcesBuildPhase section */
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2269555CAF74F95347158B33 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.koki.pulse.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pulse.app/Pulse";
+			};
+			name = Release;
+		};
 		2E7048B1817FBF01C246A8F3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -234,6 +307,9 @@
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MyVlogは完成した1日のショートを写真ライブラリに保存できます。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -257,6 +333,9 @@
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MyVlogは完成した1日のショートを写真ライブラリに保存できます。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -266,6 +345,23 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		F4D6E71E3061EE0C8446C127 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.koki.pulse.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pulse.app/Pulse";
+			};
+			name = Debug;
 		};
 		FA223E74BBF86702C72CD3A8 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -349,6 +445,15 @@
 			buildConfigurations = (
 				FA223E74BBF86702C72CD3A8 /* Debug */,
 				2E7048B1817FBF01C246A8F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F2F1EA2CB05C310F102D486E /* Build configuration list for PBXNativeTarget "PulseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F4D6E71E3061EE0C8446C127 /* Debug */,
+				2269555CAF74F95347158B33 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

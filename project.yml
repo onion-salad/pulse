@@ -21,10 +21,33 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.koki.pulse
-        INFOPLIST_KEY_CFBundleDisplayName: Pulse
+        INFOPLIST_KEY_CFBundleDisplayName: MyVlog
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_NSCameraUsageDescription: Pulse records two-second moments when your daily prompts arrive.
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: Pulse records ambient audio for your two-second moments.
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Pulse can save your finished daily vlog to your photo library.
+        INFOPLIST_KEY_NSCameraUsageDescription: MyVlogは通知が届いたタイミングで2秒の動画を撮影します。
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: MyVlogは2秒の動画と一緒に音も記録します。
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: MyVlogは完成した1日のショートを写真ライブラリに保存できます。
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait
         GENERATE_INFOPLIST_FILE: YES
+  PulseTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PulseTests
+    dependencies:
+      - target: Pulse
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.koki.pulse.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Pulse:
+    build:
+      targets:
+        Pulse: all
+        PulseTests: [test]
+    test:
+      targets:
+        - PulseTests

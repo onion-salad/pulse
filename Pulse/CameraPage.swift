@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct CameraPage: View {
+    let isActive: Bool
+
     @EnvironmentObject private var store: PulseStore
     @State private var moment: CaptureMoment?
     @State private var captureSessionID = UUID()
@@ -9,7 +11,7 @@ struct CameraPage: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if let moment {
+            if isActive, let moment {
                 CaptureMomentView(
                     moment: moment,
                     onComplete: restartCamera
@@ -26,14 +28,22 @@ struct CameraPage: View {
                 }
             }
         }
-        .task {
-            if moment == nil {
+        .task(id: isActive) {
+            if isActive, moment == nil {
                 moment = store.prepareCameraMoment()
             }
         }
         .onChange(of: store.selectedMomentID) {
-            moment = store.prepareCameraMoment()
-            captureSessionID = UUID()
+            if isActive {
+                moment = store.prepareCameraMoment()
+                captureSessionID = UUID()
+            }
+        }
+        .onChange(of: isActive) { _, active in
+            if active, moment == nil {
+                moment = store.prepareCameraMoment()
+                captureSessionID = UUID()
+            }
         }
         .preferredColorScheme(.dark)
     }

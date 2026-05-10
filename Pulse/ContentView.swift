@@ -6,8 +6,8 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var store: PulseStore
-    @Binding var selectedPage: Int
-    @State private var tick = Date()  // re-render every minute so the active-window state updates
+    @State private var pendingDelete: MyVlogDeleteItem?
+    @State private var showingComposer = false
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 10)
@@ -27,18 +27,6 @@ struct ContentView: View {
                         .padding(.horizontal, 22)
                         .padding(.top, 14)
 
-                    if store.isComposing {
-                        composingBanner
-                            .padding(.horizontal, 22)
-                            .padding(.top, 16)
-                    }
-
-                    if let url = store.plan.vlogURL {
-                        vlogCard(url: url)
-                            .padding(.horizontal, 22)
-                            .padding(.top, 20)
-                    }
-
                     clipGrid
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
@@ -56,28 +44,46 @@ struct ContentView: View {
                 }
             }
 
-            captureButtonArea
-        }
-        .preferredColorScheme(.dark)
-        .sheet(isPresented: $store.showingCapture) {
-            if let m = activeMoment {
-                CaptureMomentView(moment: m)
-                    .environmentObject(store)
-            } else {
-                NoActiveMomentView()
+            VStack {
+                Spacer()
+                Button {
+                    showingComposer = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(width: 74, height: 74)
+                        .background(.white)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.45), radius: 16, y: 8)
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 18)
+            }
+
+            if pendingDelete != nil {
+                DeleteConfirmPopup(
+                    title: "この素材を削除しますか？",
+                    message: "MyVlogから消えます。",
+                    onCancel: {
+                        pendingDelete = nil
+                    },
+                    onDelete: {
+                        performPendingDelete()
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
         }
-        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { tick = $0 }
-    }
-
-    // MARK: - Active Moment
-
-    /// Pick the moment to capture: explicit selection > active hourly window > free slot.
-    private var activeMoment: CaptureMoment? {
-        if let id = store.selectedMomentID,
-           let m = store.plan.moments.first(where: { $0.id == id }) { return m }
-        if let active = store.activeHourlyMoment { return active }
-        return store.availableFreeMoment
+        .animation(.spring(response: 0.28, dampingFraction: 0.86), value: pendingDelete != nil)
+        .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showingComposer) {
+            ArchiveComposerView(
+                initialMomentIDs: Set(visibleMomentRows.map { $0.moment.id }),
+                startsInEditor: true
+            )
+            .environmentObject(store)
+        }
     }
 
     // MARK: - Header
@@ -96,22 +102,6 @@ struct ContentView: View {
                     .kerning(1.5)
             }
             Spacer()
-            ZStack {
-                Circle()
-                    .fill(.white.opacity(0.07))
-                    .frame(width: 60, height: 60)
-                VStack(spacing: 1) {
-                    Text("\(store.plan.capturedCount)")
-                        .font(.system(size: 22, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                    Text("/ \(store.plan.totalSlots)")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.35))
-                }
-            }
-            .onLongPressGesture {
-                Task { await store.scheduleToday() }
-            }
         }
     }
 
@@ -137,7 +127,10 @@ struct ContentView: View {
                 ClipSlotView(
                     moment: row.moment,
                     index: row.index,
-                    isHourlyActive: store.activeHourlyMoment?.id == row.moment.id
+                    isHourlyActive: false,
+                    onDelete: {
+                        pendingDelete = .clip(row.moment)
+                    }
                 )
                 .aspectRatio(16/9, contentMode: .fit)
                 .onTapGesture {
@@ -148,74 +141,16 @@ struct ContentView: View {
     }
 
     private var visibleMomentRows: [(index: Int, moment: CaptureMoment)] {
-        let now = tick
         return store.plan.moments.enumerated().compactMap { offset, moment in
             if moment.status == .captured { return (offset, moment) }
-            if moment.kind == .free { return (offset, moment) }
-            if moment.scheduledAt.addingTimeInterval(5 * 60) >= now { return (offset, moment) }
             return nil
         }
     }
 
     private func handleSlotTap(moment: CaptureMoment) {
         guard moment.status == .scheduled else { return }
-        // Free slot: always tappable.
-        // Hourly slot: only within its 5-minute window.
-        if moment.kind == .hourly && !moment.isWithinCaptureWindow() { return }
         store.selectedMomentID = moment.id
         store.showingCapture = true
-    }
-
-    // MARK: - Vlog Card
-
-    private func vlogCard(url: URL) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("TODAY'S VLOG", systemImage: "play.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .kerning(1.5)
-                Spacer()
-                Menu {
-                    ForEach(MusicTrack.all) { track in
-                        Button {
-                            store.setVlogMusic(track.id)
-                        } label: {
-                            Label(
-                                track.displayName,
-                                systemImage: store.selectedMusicTrack.id == track.id ? "checkmark" : "music.note"
-                            )
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "music.note")
-                        Text(store.selectedMusicTrack.displayName)
-                    }
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(.white.opacity(0.08))
-                    .clipShape(Capsule())
-                }
-                ShareLink(item: url) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-            }
-            VideoPlayer(player: AVPlayer(url: url))
-                .frame(height: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .padding(16)
-        .background(.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.07), lineWidth: 1)
-        )
     }
 
     // MARK: - Composing Banner
@@ -236,80 +171,22 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    // MARK: - Capture Button
+}
 
-    private var captureButtonArea: some View {
-        VStack(spacing: 10) {
-            // Active hourly window: prominent capture button.
-            if let active = store.activeHourlyMoment {
-                Button {
-                    store.selectedMomentID = active.id
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                        selectedPage = 0
-                    }
-                } label: {
-                    ZStack {
-                        Circle()
-                            .stroke(.white.opacity(0.25), lineWidth: 4)
-                            .frame(width: 86, height: 86)
-                        Circle()
-                            .fill(.white)
-                            .frame(width: 74, height: 74)
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(.black)
-                    }
-                }
-                .accessibilityLabel("2秒撮影")
-            } else if let free = store.availableFreeMoment {
-                // Otherwise expose the free slot.
-                Button {
-                    store.selectedMomentID = free.id
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
-                        selectedPage = 0
-                    }
-                } label: {
-                    ZStack {
-                        Circle()
-                            .stroke(.white.opacity(0.25), lineWidth: 4)
-                            .frame(width: 86, height: 86)
-                        Circle()
-                            .fill(.white)
-                            .frame(width: 74, height: 74)
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(.black)
-                    }
-                }
-                .accessibilityLabel("自由撮影")
-            }
+private extension ContentView {
+    func performPendingDelete() {
+        switch pendingDelete {
+        case .clip(let moment):
+            store.deleteCapture(momentID: moment.id)
+        case .none:
+            break
         }
-        .padding(.bottom, 0)
-        .offset(y: 54)
+        pendingDelete = nil
     }
+}
 
-    private var footerLabel: String {
-        if store.plan.capturedCount == store.plan.totalSlots {
-            return "全部撮れた！"
-        }
-        if let active = store.activeHourlyMoment {
-            let f = DateFormatter(); f.dateFormat = "HH:mm"
-            let endTime = active.scheduledAt.addingTimeInterval(5 * 60)
-            return "撮影中 — \(f.string(from: endTime)) まで"
-        }
-        if let next = nextHourly() {
-            let f = DateFormatter(); f.dateFormat = "HH:mm"
-            return "次の通知は \(f.string(from: next.scheduledAt))"
-        }
-        return "\(store.plan.capturedCount) / \(store.plan.totalSlots)"
-    }
-
-    private func nextHourly() -> CaptureMoment? {
-        let now = Date()
-        return store.plan.moments
-            .filter { $0.kind == .hourly && $0.status == .scheduled && $0.scheduledAt > now }
-            .min { $0.scheduledAt < $1.scheduledAt }
-    }
+private enum MyVlogDeleteItem {
+    case clip(CaptureMoment)
 }
 
 // MARK: - NoActiveMomentView
@@ -344,18 +221,33 @@ struct ClipSlotView: View {
     let moment: CaptureMoment
     let index: Int
     let isHourlyActive: Bool
+    var onDelete: (() -> Void)?
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             if let url = moment.clipURL {
                 VideoThumbnailView(url: url)
+                    .overlay {
+                        Text(moment.captureTimeLabel)
+                            .font(.system(size: 30, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.58), radius: 8, y: 3)
+                    }
                     .overlay(alignment: .topTrailing) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 7, weight: .black))
-                            .foregroundStyle(.black)
-                            .padding(3.5)
-                            .background(Circle().fill(.white))
+                        if let onDelete {
+                            Button {
+                                onDelete()
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 24, height: 24)
+                                    .background(.black.opacity(0.58))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                             .padding(5)
+                        }
                     }
             } else {
                 let baseOpacity: Double = isHourlyActive ? 0.18 : (moment.status == .scheduled ? 0.07 : 0.03)
@@ -383,15 +275,17 @@ struct ClipSlotView: View {
                 )
             }
 
-            Text(moment.kind == .free ? "CAM" : "\(index + 1)")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(.white.opacity(0.55))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2.5)
-                .background(Capsule().fill(.black.opacity(0.5)))
-                .padding(5)
         }
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+}
+
+extension CaptureMoment {
+    var captureTimeLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: capturedAt ?? scheduledAt)
     }
 }
 
@@ -400,6 +294,7 @@ struct ClipSlotView: View {
 struct VideoThumbnailView: View {
     let url: URL
     @State private var thumbnail: UIImage?
+    @State private var didFail = false
 
     var body: some View {
         Group {
@@ -407,6 +302,13 @@ struct VideoThumbnailView: View {
                 Image(uiImage: thumbnail)
                     .resizable()
                     .scaledToFill()
+            } else if didFail {
+                Color.white.opacity(0.08)
+                    .overlay {
+                        Image(systemName: "film")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.28))
+                    }
             } else {
                 Color.white.opacity(0.1)
                     .overlay {
@@ -417,7 +319,9 @@ struct VideoThumbnailView: View {
             }
         }
         .task(id: url) {
+            didFail = false
             thumbnail = await makeThumbnail(from: url)
+            didFail = thumbnail == nil
         }
     }
 
@@ -427,11 +331,23 @@ struct VideoThumbnailView: View {
         gen.appliesPreferredTrackTransform = true
         gen.maximumSize = CGSize(width: 420, height: 240)
         guard let cgImg = try? await gen.image(at: .zero).image else { return nil }
-        return UIImage(cgImage: cgImg)
+        return UIImage(cgImage: cgImg).rotatedLeft()
+    }
+}
+
+extension UIImage {
+    func rotatedLeft() -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size.height, height: size.width))
+        return renderer.image { context in
+            let cgContext = context.cgContext
+            cgContext.translateBy(x: 0, y: size.width)
+            cgContext.rotate(by: -.pi / 2)
+            draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 }
 
 #Preview {
-    ContentView(selectedPage: .constant(1))
+    ContentView()
         .environmentObject(PulseStore())
 }

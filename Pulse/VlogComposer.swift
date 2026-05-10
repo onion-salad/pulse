@@ -7,7 +7,63 @@ struct VlogComposer {
     private let outputSize = CGSize(width: 1920, height: 1080)
     private let fps = CMTime(value: 1, timescale: 30)
 
-    func compose(moments: [CaptureMoment], outputURL: URL, musicID: String? = nil) async throws -> URL {
+    @MainActor
+    func makePlayerItem(
+        moments: [CaptureMoment],
+        musicID: String? = nil,
+        musicVolume: Float = 0.25,
+        clipVolumes: [UUID: Float] = [:]
+    ) async throws -> AVPlayerItem {
+        let package = try await makeRenderPackage(
+            moments: moments,
+            musicID: musicID,
+            musicVolume: musicVolume,
+            clipVolumes: clipVolumes,
+            includesOverlayLayers: false
+        )
+        let item = AVPlayerItem(asset: package.composition)
+        item.videoComposition = package.videoComposition
+        item.audioMix = package.audioMix
+        return item
+    }
+
+    func compose(
+        moments: [CaptureMoment],
+        outputURL: URL,
+        musicID: String? = nil,
+        musicVolume: Float = 0.25,
+        clipVolumes: [UUID: Float] = [:]
+    ) async throws -> URL {
+        let package = try await makeRenderPackage(
+            moments: moments,
+            musicID: musicID,
+            musicVolume: musicVolume,
+            clipVolumes: clipVolumes,
+            includesOverlayLayers: true
+        )
+
+        guard let export = AVAssetExportSession(
+            asset: package.composition, presetName: AVAssetExportPresetHighestQuality
+        ) else { throw VlogComposerError.cannotCreateExport }
+
+        export.outputURL  = outputURL
+        export.outputFileType = .mp4
+        export.shouldOptimizeForNetworkUse = true
+        export.videoComposition = package.videoComposition
+        export.audioMix = package.audioMix
+
+        await export.export()
+        if let error = export.error { throw error }
+        return outputURL
+    }
+
+    private func makeRenderPackage(
+        moments: [CaptureMoment],
+        musicID: String?,
+        musicVolume: Float,
+        clipVolumes: [UUID: Float],
+        includesOverlayLayers: Bool
+    ) async throws -> VlogRenderPackage {
         let composition = AVMutableComposition()
         guard let videoTrack = composition.addMutableTrack(
             withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid
@@ -19,6 +75,7 @@ struct VlogComposer {
 
         var instructions: [AVMutableVideoCompositionInstruction] = []
         var overlayItems: [(text: String?, timestamp: Date?, range: CMTimeRange)] = []
+        var clipAudioItems: [(volume: Float, range: CMTimeRange)] = []
         var cursor = CMTime.zero
 
         for moment in moments {
@@ -32,11 +89,12 @@ struct VlogComposer {
 
             let clipRange = CMTimeRange(start: .zero, duration: duration)
             try videoTrack.insertTimeRange(clipRange, of: srcVideo, at: cursor)
+            let compositionRange = CMTimeRange(start: cursor, duration: duration)
             if let srcAudio = try await asset.loadTracks(withMediaType: .audio).first {
                 try audioTrack?.insertTimeRange(clipRange, of: srcAudio, at: cursor)
+                clipAudioItems.append((clipVolumes[moment.id] ?? 1.0, compositionRange))
             }
 
-            let compositionRange = CMTimeRange(start: cursor, duration: duration)
             let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
             layerInstruction.setTransform(
                 fitTransform(naturalSize: naturalSize, preferredTransform: preferredTransform),
@@ -82,56 +140,46 @@ struct VlogComposer {
         videoComposition.frameDuration = fps
         videoComposition.instructions = instructions
 
-        // MARK: Text overlay layers
-        let parentLayer = CALayer()
-        let videoLayer  = CALayer()
-        parentLayer.frame = CGRect(origin: .zero, size: outputSize)
-        videoLayer.frame  = CGRect(origin: .zero, size: outputSize)
-        parentLayer.addSublayer(videoLayer)
+        if includesOverlayLayers {
+            let parentLayer = CALayer()
+            let videoLayer  = CALayer()
+            parentLayer.frame = CGRect(origin: .zero, size: outputSize)
+            videoLayer.frame  = CGRect(origin: .zero, size: outputSize)
+            parentLayer.addSublayer(videoLayer)
 
-        for item in overlayItems {
-            let overlay = makeOverlayLayer(text: item.text, timestamp: item.timestamp)
-            overlay.frame = CGRect(origin: .zero, size: outputSize)
-            overlay.opacity = 0
-            attachOpacityKeyframes(layer: overlay, range: item.range, total: totalDuration)
-            parentLayer.addSublayer(overlay)
+            for item in overlayItems {
+                let overlay = makeOverlayLayer(text: item.text, timestamp: item.timestamp)
+                overlay.frame = CGRect(origin: .zero, size: outputSize)
+                overlay.opacity = 0
+                attachOpacityKeyframes(layer: overlay, range: item.range, total: totalDuration)
+                parentLayer.addSublayer(overlay)
+            }
+
+            videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+                postProcessingAsVideoLayer: videoLayer, in: parentLayer
+            )
         }
 
-        videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
-            postProcessingAsVideoLayer: videoLayer, in: parentLayer
-        )
-
-        // MARK: Export
-        guard let export = AVAssetExportSession(
-            asset: composition, presetName: AVAssetExportPresetHighestQuality
-        ) else { throw VlogComposerError.cannotCreateExport }
-
-        export.outputURL  = outputURL
-        export.outputFileType = .mp4
-        export.shouldOptimizeForNetworkUse = true
-        export.videoComposition = videoComposition
-
-        // Audio mix: clip audio full volume, music at 25%
         var audioParams: [AVMutableAudioMixInputParameters] = []
         if let at = audioTrack {
             let p = AVMutableAudioMixInputParameters(track: at)
-            p.setVolume(1.0, at: .zero)
+            for item in clipAudioItems {
+                p.setVolume(item.volume, at: item.range.start)
+            }
             audioParams.append(p)
         }
         if let mt = musicCompositionTrack {
             let p = AVMutableAudioMixInputParameters(track: mt)
-            p.setVolume(0.25, at: .zero)
+            p.setVolume(musicVolume, at: .zero)
             audioParams.append(p)
         }
         if !audioParams.isEmpty {
             let mix = AVMutableAudioMix()
             mix.inputParameters = audioParams
-            export.audioMix = mix
+            return VlogRenderPackage(composition: composition, videoComposition: videoComposition, audioMix: mix)
         }
 
-        await export.export()
-        if let error = export.error { throw error }
-        return outputURL
+        return VlogRenderPackage(composition: composition, videoComposition: videoComposition, audioMix: nil)
     }
 
     // MARK: - Overlay layer
@@ -142,12 +190,12 @@ struct VlogComposer {
         container.frame = CGRect(origin: .zero, size: outputSize)
         container.isGeometryFlipped = true
 
-        // Center text (bold, large, with shadow)
-        if let text, !text.isEmpty {
+        // Center text is only used when a clip has no timestamp.
+        if let text, !text.isEmpty, timestamp == nil {
             let tl = CATextLayer()
             tl.string = text
             tl.alignmentMode = .center
-            tl.font = UIFont.systemFont(ofSize: 110, weight: .heavy)
+            tl.font = UIFont.systemFont(ofSize: 110, weight: .heavy).fontName as CFTypeRef
             tl.fontSize = 110
             tl.foregroundColor = UIColor.white.cgColor
             tl.contentsScale = 2
@@ -166,58 +214,29 @@ struct VlogComposer {
             container.addSublayer(tl)
         }
 
-        // Vlog-style timestamp (bottom-left)
+        // Centered timestamp.
         if let ts = timestamp {
             let timeFmt = DateFormatter(); timeFmt.locale = Locale(identifier: "en_US_POSIX"); timeFmt.dateFormat = "HH:mm"
-            let dateFmt = DateFormatter(); dateFmt.locale = Locale(identifier: "en_US_POSIX"); dateFmt.dateFormat = "MMM d · EEE"
 
-            let baseX: CGFloat = 60
-            let baseY: CGFloat = outputSize.height - 220  // 860
-
-            // Red REC dot
-            let dot = CALayer()
-            dot.frame = CGRect(x: baseX, y: baseY, width: 18, height: 18)
-            dot.cornerRadius = 9
-            dot.backgroundColor = UIColor(red: 1, green: 0.18, blue: 0.18, alpha: 1).cgColor
-            container.addSublayer(dot)
-
-            // "REC"
-            let recLayer = CATextLayer()
-            recLayer.string = "REC"
-            recLayer.font = UIFont.monospacedSystemFont(ofSize: 24, weight: .bold)
-            recLayer.fontSize = 24
-            recLayer.foregroundColor = UIColor.white.cgColor
-            recLayer.contentsScale = 2
-            recLayer.frame = CGRect(x: baseX + 26, y: baseY - 3, width: 80, height: 28)
-            container.addSublayer(recLayer)
-
-            // Big HH:MM
             let timeLayer = CATextLayer()
             timeLayer.string = timeFmt.string(from: ts)
-            timeLayer.font = UIFont.monospacedSystemFont(ofSize: 96, weight: .heavy)
-            timeLayer.fontSize = 96
+            timeLayer.alignmentMode = .center
+            timeLayer.font = UIFont.monospacedSystemFont(ofSize: 130, weight: .heavy).fontName as CFTypeRef
+            timeLayer.fontSize = 130
             timeLayer.foregroundColor = UIColor.white.cgColor
             timeLayer.contentsScale = 2
             timeLayer.shadowColor   = UIColor.black.cgColor
             timeLayer.shadowOpacity = 0.5
-            timeLayer.shadowRadius  = 8
-            timeLayer.shadowOffset  = CGSize(width: 0, height: 3)
-            timeLayer.frame = CGRect(x: baseX, y: baseY + 24, width: 500, height: 110)
+            timeLayer.shadowRadius  = 12
+            timeLayer.shadowOffset  = CGSize(width: 0, height: 4)
+            let height: CGFloat = 160
+            timeLayer.frame = CGRect(
+                x: 0,
+                y: (outputSize.height - height) / 2,
+                width: outputSize.width,
+                height: height
+            )
             container.addSublayer(timeLayer)
-
-            // Small date
-            let dateLayer = CATextLayer()
-            dateLayer.string = dateFmt.string(from: ts).uppercased()
-            dateLayer.font = UIFont.monospacedSystemFont(ofSize: 26, weight: .semibold)
-            dateLayer.fontSize = 26
-            dateLayer.foregroundColor = UIColor(white: 1, alpha: 0.85).cgColor
-            dateLayer.contentsScale = 2
-            dateLayer.shadowColor   = UIColor.black.cgColor
-            dateLayer.shadowOpacity = 0.5
-            dateLayer.shadowRadius  = 6
-            dateLayer.shadowOffset  = CGSize(width: 0, height: 2)
-            dateLayer.frame = CGRect(x: baseX, y: baseY + 138, width: 500, height: 36)
-            container.addSublayer(dateLayer)
         }
 
         return container
@@ -248,20 +267,30 @@ struct VlogComposer {
     // MARK: - Fit transform
 
     private func fitTransform(naturalSize: CGSize, preferredTransform: CGAffineTransform) -> CGAffineTransform {
-        let isRotated = abs(preferredTransform.b) > 0.5
-        let visual = isRotated
-            ? CGSize(width: naturalSize.height, height: naturalSize.width)
-            : naturalSize
+        let naturalRect = CGRect(origin: .zero, size: naturalSize)
+        let preferredBounds = naturalRect.applying(preferredTransform)
+        let normalizedPreferred = preferredTransform.concatenating(
+            CGAffineTransform(
+                translationX: -preferredBounds.minX,
+                y: -preferredBounds.minY
+            )
+        )
 
-        let scale   = min(outputSize.width / visual.width, outputSize.height / visual.height)
-        let centerX = (outputSize.width  - visual.width  * scale) / 2
-        let centerY = (outputSize.height - visual.height * scale) / 2
+        let visualSize = CGSize(
+            width: abs(preferredBounds.width),
+            height: abs(preferredBounds.height)
+        )
+        let rotateLeft = CGAffineTransform(rotationAngle: -.pi / 2)
+            .concatenating(CGAffineTransform(translationX: 0, y: visualSize.width))
+        let rotatedSize = CGSize(width: visualSize.height, height: visualSize.width)
+        let scale = min(outputSize.width / rotatedSize.width, outputSize.height / rotatedSize.height)
+        let centerX = (outputSize.width - rotatedSize.width * scale) / 2
+        let centerY = (outputSize.height - rotatedSize.height * scale) / 2
 
-        var t = preferredTransform
-        t.a *= scale; t.b *= scale; t.c *= scale; t.d *= scale
-        t.tx = t.tx * scale + centerX
-        t.ty = t.ty * scale + centerY
-        return t
+        return normalizedPreferred
+            .concatenating(rotateLeft)
+            .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+            .concatenating(CGAffineTransform(translationX: centerX, y: centerY))
     }
 }
 
@@ -273,4 +302,10 @@ enum VlogComposerError: LocalizedError {
         case .cannotCreateExport: "書き出しセッションを作れませんでした。"
         }
     }
+}
+
+private struct VlogRenderPackage {
+    let composition: AVMutableComposition
+    let videoComposition: AVMutableVideoComposition
+    let audioMix: AVAudioMix?
 }
