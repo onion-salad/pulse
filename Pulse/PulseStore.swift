@@ -234,7 +234,8 @@ final class PulseStore: ObservableObject {
         moments: [CaptureMoment],
         musicID: String,
         musicVolume: Double,
-        clipVolumes: [UUID: Double]
+        clipVolumes: [UUID: Double],
+        progressHandler: (@MainActor @Sendable (Double) -> Void)? = nil
     ) async -> URL? {
         guard !moments.isEmpty else { return nil }
         isComposing = true
@@ -252,7 +253,8 @@ final class PulseStore: ObservableObject {
                 outputURL: output,
                 musicID: musicID,
                 musicVolume: Float(musicVolume),
-                clipVolumes: normalizedClipVolumes
+                clipVolumes: normalizedClipVolumes,
+                progressHandler: progressHandler
             )
             refreshVlogs()
             return url

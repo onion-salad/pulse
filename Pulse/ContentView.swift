@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import UIKit
 
 // MARK: - ContentView
 
@@ -47,6 +48,7 @@ struct ContentView: View {
             VStack {
                 Spacer()
                 Button {
+                    AppHaptics.light()
                     showingComposer = true
                 } label: {
                     Image(systemName: "plus")
@@ -197,6 +199,16 @@ private enum MyVlogDeleteItem {
     case clip(CaptureMoment)
 }
 
+enum AppHaptics {
+    static func light() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+}
+
 // MARK: - NoActiveMomentView
 
 struct NoActiveMomentView: View {
@@ -300,12 +312,19 @@ struct MyVlogInlineClipPlayer: View {
     @State private var player: AVPlayer?
 
     var body: some View {
-        Group {
-            if let player {
-                MyVlogPlayerLayer(player: player)
-            } else {
-                Color.black
+        GeometryReader { proxy in
+            Group {
+                if let player {
+                    MyVlogPlayerLayer(player: player)
+                        .frame(width: proxy.size.height, height: proxy.size.width)
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                } else {
+                    Color.black
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .task(id: url) {
             player?.pause()

@@ -22,6 +22,10 @@ private enum CaptureZoomLevel: CGFloat, CaseIterable {
     case one = 1
     case two = 2
 
+    static var displayOrder: [CaptureZoomLevel] {
+        [.two, .one, .half]
+    }
+
     var title: String {
         switch self {
         case .half: "0.5"
@@ -127,7 +131,7 @@ struct CaptureMomentView: View {
                         .padding(.bottom, 150)
                 }
 
-                VStack(spacing: 12) {
+                VStack(spacing: 6) {
                     zoomSelector
 
                     Button {
@@ -143,7 +147,7 @@ struct CaptureMomentView: View {
             }
             .overlay(alignment: progressBarAlignment) {
                 if isRecording {
-                    recordingProgressBar(size: proxy.size)
+                    recordingProgressBar()
                 }
             }
             .onAppear {
@@ -200,8 +204,8 @@ struct CaptureMomentView: View {
     }
 
     private var zoomSelector: some View {
-        HStack(spacing: 4) {
-            ForEach(CaptureZoomLevel.allCases, id: \.self) { level in
+        VStack(spacing: 4) {
+            ForEach(CaptureZoomLevel.displayOrder, id: \.self) { level in
                 Button {
                     guard !isRecording else { return }
                     withAnimation(.easeInOut(duration: 0.16)) {
@@ -221,26 +225,27 @@ struct CaptureMomentView: View {
         }
         .padding(4)
         .background(.black.opacity(0.42))
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         )
         .rotationEffect(.degrees(90))
-        .opacity(isRecording ? 0.45 : 1)
+        .opacity(isRecording ? 0 : 1)
+        .allowsHitTesting(!isRecording)
     }
 
-    private func recordingProgressBar(size: CGSize) -> some View {
-        Group {
+    private func recordingProgressBar() -> some View {
+        let screenSize = UIScreen.main.bounds.size
+
+        return Group {
             switch progressEdge {
             case .leading, .trailing:
-                verticalRecordingProgressBar(height: size.height)
-                    .frame(width: 4, height: size.height)
-                    .padding(progressEdge == .leading ? .leading : .trailing, 1)
+                verticalRecordingProgressBar(height: screenSize.height)
+                    .frame(width: 4, height: screenSize.height)
             case .top:
-                horizontalRecordingProgressBar(width: size.width)
-                    .frame(width: size.width, height: 4)
-                    .padding(.top, 1)
+                horizontalRecordingProgressBar(width: screenSize.width)
+                    .frame(width: screenSize.width, height: 4)
             }
         }
         .ignoresSafeArea()
@@ -339,6 +344,7 @@ struct CaptureMomentView: View {
 
             store.setCustomText(customText, for: moment.id)
             store.registerCapture(momentID: moment.id, url: finalURL, capturedAt: capturedAt)
+            AppHaptics.success()
             withAnimation { phase = .done }
             try? await Task.sleep(nanoseconds: 900_000_000)
             if let onComplete {
@@ -364,6 +370,7 @@ struct CaptureMomentView: View {
 
             store.setCustomText(customText, for: moment.id)
             store.registerCapture(momentID: moment.id, url: finalURL, capturedAt: capturedAt)
+            AppHaptics.success()
             withAnimation { phase = .done }
             try? await Task.sleep(nanoseconds: 700_000_000)
             if let onComplete {
@@ -529,6 +536,7 @@ struct TrimView: View {
                     .disabled(!canRetake)
 
                     Button {
+                        AppHaptics.light()
                         textFocused = false
                         onConfirm(startTime)
                     } label: {
@@ -623,6 +631,18 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
         super.viewDidLoad()
         view.backgroundColor = .black
         Task { await configureAndStart() }
+    }
+
+    override var shouldAutorotate: Bool {
+        false
+    }
+
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        .portrait
+    }
+
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        .portrait
     }
 
     override func viewDidLayoutSubviews() {
@@ -753,18 +773,7 @@ final class CameraRecorderViewController: UIViewController, AVCaptureFileOutputR
     }
 
     private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        switch UIDevice.current.orientation {
-        case .landscapeLeft:
-            return .landscapeRight
-        case .landscapeRight:
-            return .landscapeLeft
-        case .portraitUpsideDown:
-            return .portraitUpsideDown
-        case .portrait:
-            return .portrait
-        default:
-            return view.bounds.width > view.bounds.height ? .landscapeRight : .portrait
-        }
+        .portrait
     }
 
     private func replaceVideoInput(for level: CGFloat) throws {

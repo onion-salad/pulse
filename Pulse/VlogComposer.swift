@@ -32,7 +32,8 @@ struct VlogComposer {
         outputURL: URL,
         musicID: String? = nil,
         musicVolume: Float = 0.25,
-        clipVolumes: [UUID: Float] = [:]
+        clipVolumes: [UUID: Float] = [:],
+        progressHandler: (@MainActor @Sendable (Double) -> Void)? = nil
     ) async throws -> URL {
         let package = try await makeRenderPackage(
             moments: moments,
@@ -52,8 +53,26 @@ struct VlogComposer {
         export.videoComposition = package.videoComposition
         export.audioMix = package.audioMix
 
+        let progressTask = Task {
+            while !Task.isCancelled {
+                let progress = min(max(Double(export.progress), 0), 0.98)
+                if let progressHandler {
+                    await MainActor.run {
+                        progressHandler(progress)
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 80_000_000)
+            }
+        }
+
         await export.export()
+        progressTask.cancel()
         if let error = export.error { throw error }
+        if let progressHandler {
+            await MainActor.run {
+                progressHandler(1)
+            }
+        }
         return outputURL
     }
 
@@ -69,13 +88,9 @@ struct VlogComposer {
             withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid
         ) else { throw VlogComposerError.cannotCreateTrack }
 
-        let audioTrack = composition.addMutableTrack(
-            withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid
-        )
-
         var instructions: [AVMutableVideoCompositionInstruction] = []
         var overlayItems: [(text: String?, timestamp: Date?, range: CMTimeRange)] = []
-        var clipAudioItems: [(volume: Float, range: CMTimeRange)] = []
+        var clipAudioItems: [(track: AVMutableCompositionTrack, volume: Float, range: CMTimeRange)] = []
         var cursor = CMTime.zero
 
         for moment in moments {
@@ -90,9 +105,13 @@ struct VlogComposer {
             let clipRange = CMTimeRange(start: .zero, duration: duration)
             try videoTrack.insertTimeRange(clipRange, of: srcVideo, at: cursor)
             let compositionRange = CMTimeRange(start: cursor, duration: duration)
-            if let srcAudio = try await asset.loadTracks(withMediaType: .audio).first {
-                try audioTrack?.insertTimeRange(clipRange, of: srcAudio, at: cursor)
-                clipAudioItems.append((clipVolumes[moment.id] ?? 1.0, compositionRange))
+            if let srcAudio = try await asset.loadTracks(withMediaType: .audio).first,
+               let clipAudioTrack = composition.addMutableTrack(
+                   withMediaType: .audio,
+                   preferredTrackID: kCMPersistentTrackID_Invalid
+               ) {
+                try clipAudioTrack.insertTimeRange(clipRange, of: srcAudio, at: cursor)
+                clipAudioItems.append((clipAudioTrack, clipVolumes[moment.id] ?? 1.0, compositionRange))
             }
 
             let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
@@ -161,11 +180,13 @@ struct VlogComposer {
         }
 
         var audioParams: [AVMutableAudioMixInputParameters] = []
-        if let at = audioTrack {
-            let p = AVMutableAudioMixInputParameters(track: at)
-            for item in clipAudioItems {
-                p.setVolume(item.volume, at: item.range.start)
-            }
+        for item in clipAudioItems {
+            let p = AVMutableAudioMixInputParameters(track: item.track)
+            p.setVolumeRamp(
+                fromStartVolume: item.volume,
+                toEndVolume: item.volume,
+                timeRange: item.range
+            )
             audioParams.append(p)
         }
         if let mt = musicCompositionTrack {

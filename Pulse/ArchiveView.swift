@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import Photos
 import SwiftUI
 
 // MARK: - ArchiveView
@@ -45,6 +46,7 @@ struct ArchiveView: View {
             VStack {
                 Spacer()
                 Button {
+                    AppHaptics.light()
                     showingComposer = true
                 } label: {
                     Image(systemName: "plus")
@@ -125,6 +127,7 @@ struct VlogCardView: View {
     let onDelete: () -> Void
     @State private var thumbnail: UIImage?
     @State private var didFail = false
+    @State private var isSavingToPhotos = false
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -170,14 +173,26 @@ struct VlogCardView: View {
                 Spacer()
                 VStack {
                     HStack(spacing: 8) {
-                        ShareLink(item: url) {
-                            Image(systemName: "arrow.down.to.line")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 34, height: 34)
-                                .background(.black.opacity(0.58))
-                                .clipShape(Circle())
+                        Button {
+                            Task { await saveVideoToPhotos() }
+                        } label: {
+                            ZStack {
+                                if isSavingToPhotos {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .scaleEffect(0.55)
+                                } else {
+                                    Image(systemName: "arrow.down.to.line")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                            .frame(width: 34, height: 34)
+                            .background(.black.opacity(0.58))
+                            .clipShape(Circle())
                         }
+                        .buttonStyle(.plain)
+                        .disabled(isSavingToPhotos)
 
                         Button {
                             onDelete()
@@ -224,6 +239,53 @@ struct VlogCardView: View {
         guard let cgImg = try? await gen.image(at: t).image else { return nil }
         return UIImage(cgImage: cgImg)
     }
+
+    @MainActor
+    private func saveVideoToPhotos() async {
+        guard !isSavingToPhotos else { return }
+        AppHaptics.light()
+        isSavingToPhotos = true
+        defer { isSavingToPhotos = false }
+
+        do {
+            let status = await PHPhotoLibrary.requestAddOnlyAuthorization()
+            guard status == .authorized || status == .limited else { return }
+            try await PHPhotoLibrary.shared().saveVideoToLibrary(at: url)
+            AppHaptics.success()
+        } catch {
+            didFail = true
+        }
+    }
+}
+
+private extension PHPhotoLibrary {
+    static func requestAddOnlyAuthorization() async -> PHAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            requestAuthorization(for: .addOnly) { status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
+
+    func saveVideoToLibrary(at url: URL) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            } completionHandler: { success, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: PhotoLibrarySaveError.failed)
+                }
+            }
+        }
+    }
+}
+
+private enum PhotoLibrarySaveError: Error {
+    case failed
 }
 
 // MARK: - VlogPlayerView
@@ -299,6 +361,7 @@ struct ArchiveComposerView: View {
     @State private var previewPlayer = AVPlayer()
     @State private var isRendering = false
     @State private var isSaving = false
+    @State private var saveProgress = 0.0
     @State private var didSave = false
     @State private var didPrepareInitialState = false
     @State private var editorTab: ArchiveComposerTab = .music
@@ -519,7 +582,11 @@ struct ArchiveComposerView: View {
                 .padding(.bottom, 120)
             }
 
-            bottomAction(title: isSaving ? "保存中" : "アーカイブに保存", disabled: previewItem == nil || isRendering || isSaving) {
+            bottomAction(
+                title: isSaving ? "保存中" : "アーカイブに保存",
+                disabled: previewItem == nil || isRendering || isSaving,
+                progress: isSaving ? saveProgress : nil
+            ) {
                 Task { await saveArchive() }
             }
         }
@@ -748,7 +815,12 @@ struct ArchiveComposerView: View {
         }
     }
 
-    private func bottomAction(title: String, disabled: Bool, action: @escaping () -> Void) -> some View {
+    private func bottomAction(
+        title: String,
+        disabled: Bool,
+        progress: Double? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 16, weight: .black))
@@ -757,6 +829,13 @@ struct ArchiveComposerView: View {
                 .frame(height: 58)
                 .background(disabled ? .white.opacity(0.1) : .white)
                 .clipShape(Capsule())
+                .overlay {
+                    if let progress {
+                        SavingProgressBorder(progress: progress)
+                            .stroke(.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
+                    }
+                }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
         }
@@ -796,17 +875,24 @@ struct ArchiveComposerView: View {
 
     private func saveArchive() async {
         guard !selectedMoments.isEmpty, !isSaving else { return }
+        AppHaptics.light()
         isSaving = true
+        saveProgress = 0
         if let _ = await store.saveArchive(
             moments: selectedMomentsForRender,
             musicID: selectedMusicID,
             musicVolume: musicVolume,
-            clipVolumes: clipVolumes
+            clipVolumes: clipVolumes,
+            progressHandler: { progress in
+                saveProgress = progress
+            }
         ) {
             didSave = true
+            AppHaptics.success()
             dismiss()
         }
         isSaving = false
+        saveProgress = 0
     }
 
     private func prepareEditor() {
@@ -939,6 +1025,60 @@ private enum ArchiveComposerTab: CaseIterable {
         case .music: "音楽"
         case .clips: "クリップ"
         }
+    }
+}
+
+private struct SavingProgressBorder: Shape {
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let inset: CGFloat = 1.5
+        let rect = rect.insetBy(dx: inset, dy: inset)
+        let radius = min(rect.height / 2, rect.width / 2)
+        let clampedProgress = min(max(progress, 0), 1)
+
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius),
+            radius: radius,
+            startAngle: .degrees(-90),
+            endAngle: .degrees(0),
+            clockwise: false
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius),
+            radius: radius,
+            startAngle: .degrees(0),
+            endAngle: .degrees(90),
+            clockwise: false
+        )
+        path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
+        path.addArc(
+            center: CGPoint(x: rect.minX + radius, y: rect.maxY - radius),
+            radius: radius,
+            startAngle: .degrees(90),
+            endAngle: .degrees(180),
+            clockwise: false
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addArc(
+            center: CGPoint(x: rect.minX + radius, y: rect.minY + radius),
+            radius: radius,
+            startAngle: .degrees(180),
+            endAngle: .degrees(270),
+            clockwise: false
+        )
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+
+        return path.trimmedPath(from: 0, to: clampedProgress)
     }
 }
 
